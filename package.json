@@ -1,0 +1,49 @@
+{
+  "name": "sentry",
+  "version": "0.1.0",
+  "description": "Sentry Agentic Browser",
+  "main": "dist/main/main/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:renderer": "vite --config vite.config.ts",
+    "dev:main": "wait-on http://localhost:5173 && tsc -p tsconfig.main.json && electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build --config vite.config.ts",
+    "build:main": "tsc -p tsconfig.main.json",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "electron-chrome-extensions": "^4.9.0",
+    "puppeteer-core": "^22.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^15.0.7",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.6",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11",
+    "vitest": "^1.6.0",
+    "wait-on": "^7.2.0"
+  }
+}
