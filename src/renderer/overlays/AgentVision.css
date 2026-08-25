@@ -1,0 +1,121 @@
+.agent-vision-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 7000;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+}
+
+.vision-header {
+  pointer-events: auto;
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #11111b;
+  border: 1px solid #cba6f7;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #cdd6f4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.vision-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #cba6f7;
+}
+
+.vision-stats {
+  font-size: 11px;
+  color: #a6adc8;
+}
+
+.vision-legend {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.legend-item {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.vision-close-btn {
+  background: #313244;
+  border: none;
+  color: #f38ba8;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.vision-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.vision-bounding-box {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.interactive-highlight {
+  border: 2px solid #89b4fa;
+  background: rgba(137, 180, 250, 0.15);
+}
+
+.form-highlight {
+  border: 2px solid #cba6f7;
+  background: rgba(203, 166, 247, 0.15);
+}
+
+.target-highlight {
+  border: 3px solid #f9e2af;
+  background: rgba(249, 226, 175, 0.3);
+  box-shadow: 0 0 12px #f9e2af;
+  z-index: 10;
+}
+
+.default-highlight {
+  border: 1px dashed #a6e3a1;
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.vision-tag-label {
+  position: absolute;
+  top: -20px;
+  left: -2px;
+  background: #11111b;
+  color: #cdd6f4;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+  display: flex;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.index-num {
+  color: #a6e3a1;
+  font-weight: bold;
+}
+
+.el-label {
+  color: #bac2de;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
