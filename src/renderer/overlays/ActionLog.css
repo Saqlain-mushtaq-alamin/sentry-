@@ -1,0 +1,217 @@
+.action-log-container {
+  background: #181825;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cdd6f4;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin-top: 10px;
+}
+
+.action-log-header {
+  padding: 10px 14px;
+  background: #1e1e2e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.log-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.log-summary-pills {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.pill {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #a6adc8;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.action-log-content {
+  padding: 12px;
+}
+
+.log-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.log-search-input, .log-filter-select {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #cdd6f4;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.log-search-input {
+  flex: 1;
+}
+
+.export-btn, .clear-btn {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #89b4fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.export-btn:hover, .clear-btn:hover {
+  background: #45475a;
+}
+
+.log-timeline {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-log-state {
+  font-size: 12px;
+  color: #6c7086;
+  text-align: center;
+  padding: 16px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1e1e2e;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.time-col {
+  font-size: 10px;
+  color: #6c7086;
+  font-family: monospace;
+}
+
+.tier-col {
+  font-size: 12px;
+}
+
+.action-col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-col:hover {
+  color: #89b4fa;
+}
+
+.action-type {
+  font-weight: 700;
+  font-size: 11px;
+  color: #cba6f7;
+}
+
+.action-target {
+  color: #bac2de;
+}
+
+.action-val {
+  background: #11111b;
+  color: #a6e3a1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.blocked-tag {
+  color: #f38ba8;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.why-btn {
+  background: rgba(137, 180, 250, 0.1);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.why-btn:hover {
+  background: #89b4fa;
+  color: #11111b;
+}
+
+/* Time machine modal */
+.time-machine-modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.time-machine-card {
+  background: #1e1e2e;
+  border-radius: 8px;
+  width: 480px;
+  padding: 16px;
+  color: #cdd6f4;
+  border: 1px solid #89b4fa;
+}
+
+.time-machine-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #313244;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.time-machine-header button {
+  background: transparent;
+  border: none;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+
+.snapshot-preview-box {
+  background: #11111b;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-top: 10px;
+}
