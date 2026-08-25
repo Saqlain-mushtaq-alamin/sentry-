@@ -1,0 +1,102 @@
+.agent-sidebar {
+  position: fixed;
+  top: 40px;
+  right: 0;
+  bottom: 0;
+  background: #11111b;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 6000;
+  color: #cdd6f4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.agent-sidebar-collapsed {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #181825;
+  border: 1px solid #89b4fa;
+  color: #89b4fa;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  z-index: 6000;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-header {
+  padding: 10px 14px;
+  background: #181825;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #cba6f7;
+}
+
+.sidebar-collapse-btn {
+  background: transparent;
+  border: none;
+  color: #6c7086;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sidebar-scrollable-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.sidebar-plan-card {
+  background: #181825;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-plan-card h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #f9e2af;
+}
+
+.plan-steps-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-step {
+  font-size: 11px;
+  display: flex;
+  gap: 6px;
+  color: #a6adc8;
+}
+
+.mini-step.done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.mini-step.active {
+  color: #89b4fa;
+  font-weight: bold;
+}
+
+.sidebar-footer {
+  padding: 8px;
+  background: #181825;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
