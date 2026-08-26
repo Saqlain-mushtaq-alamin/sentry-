@@ -1,0 +1,117 @@
+.cost-meter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  transition: all 0.2s;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.cost-meter:hover {
+  background: var(--bg-surface);
+}
+
+.cost-meter-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+}
+
+.cost-meter-tooltip .tooltip-header {
+  background: var(--bg-hover);
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.cost-meter-tooltip .tooltip-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cost-meter-tooltip .detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.cost-meter-tooltip .detail-row span {
+  color: var(--text-secondary);
+}
+
+.cost-meter-tooltip .detail-row strong {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.token-count {
+  font-size: 11px;
+  color: var(--text-secondary) !important;
+  font-weight: normal;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 6px 0;
+}
+
+.budget-bar-container {
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.budget-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.budget-bar.good { background: #00c853; }
+.budget-bar.warning { background: #ffd600; }
+.budget-bar.danger { background: #ff1744; }
+
+.budget-pct {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: right;
+  margin-top: 2px;
+}
+
+.tooltip-footer {
+  padding: 10px 14px;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}
