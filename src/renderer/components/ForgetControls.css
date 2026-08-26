@@ -1,0 +1,73 @@
+.forget-controls {
+  background: #181825;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 20px;
+  color: #cdd6f4;
+  margin-top: 24px;
+}
+
+.forget-controls h3 {
+  margin-top: 0;
+  color: #f38ba8;
+}
+
+.fc-stats {
+  font-size: 13px;
+  color: #a6adc8;
+  margin-bottom: 20px;
+}
+
+.fc-stats ul {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+}
+
+.fc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.fc-actions p {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #a6adc8;
+}
+
+.fc-btn {
+  background: #313244;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.fc-btn:hover {
+  background: #45475a;
+}
+
+.fc-btn-danger {
+  background: #452b36;
+  border-color: #f38ba8;
+  color: #f38ba8;
+}
+
+.fc-btn-danger:hover {
+  background: #f38ba8;
+  color: #11111b;
+}
+
+.fc-info {
+  font-size: 12px;
+  color: #7f849c;
+  background: #1e1e2e;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid #89b4fa;
+}
