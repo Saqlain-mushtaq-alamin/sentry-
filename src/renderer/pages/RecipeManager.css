@@ -1,0 +1,125 @@
+.recipe-manager {
+  padding: 24px;
+  color: #cdd6f4;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.rm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.rm-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #cba6f7;
+}
+
+.rm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.rm-actions button {
+  background: #313244;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rm-actions button:hover {
+  background: #45475a;
+}
+
+.rm-empty {
+  text-align: center;
+  padding: 48px;
+  background: #181825;
+  border-radius: 8px;
+  color: #a6adc8;
+}
+
+.rm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rm-card {
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.rm-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rm-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #89b4fa;
+}
+
+.rm-sites {
+  font-size: 12px;
+  color: #a6adc8;
+  background: #313244;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.rm-card-meta {
+  font-size: 12px;
+  color: #7f849c;
+  margin-bottom: 8px;
+}
+
+.rm-vars {
+  font-size: 13px;
+  color: #cdd6f4;
+  margin-bottom: 16px;
+  background: #181825;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.rm-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rm-card-actions button {
+  background: #313244;
+  color: #cdd6f4;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rm-card-actions button.primary-btn {
+  background: #a6e3a1;
+  color: #11111b;
+  font-weight: 600;
+}
+
+.rm-card-actions button.danger-btn {
+  background: #f38ba8;
+  color: #11111b;
+}
+
+.rm-card-actions button:hover {
+  opacity: 0.9;
+}
