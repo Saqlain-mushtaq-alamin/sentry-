@@ -1,0 +1,138 @@
+.extension-manager-page {
+  padding: 24px;
+  color: var(--text-primary);
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.ext-header h1 {
+  margin: 0 0 24px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ext-actions-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.ext-btn {
+  padding: 8px 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.ext-btn:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.ext-btn-primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.ext-btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.ext-btn-danger {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.ext-btn-danger:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
+.ext-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ext-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 40px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.ext-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ext-disabled {
+  opacity: 0.7;
+}
+
+.ext-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ext-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ext-version {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ext-status {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ext-status-on {
+  color: #4ade80;
+}
+
+.ext-status-off {
+  color: #94a3b8;
+}
+
+.ext-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ext-detail strong {
+  color: var(--text-primary);
+}
+
+.ext-warning {
+  margin-top: 8px;
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+.ext-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
