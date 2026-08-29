@@ -1,0 +1,116 @@
+.voice-controls {
+  position: relative;
+  display: inline-block;
+}
+
+.voice-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.voice-btn:hover {
+  background: var(--bg-surface-hover);
+}
+
+.voice-btn.listening {
+  background: #ef4444;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.voice-transcript-overlay {
+  position: absolute;
+  bottom: 48px;
+  left: 0;
+  z-index: 1000;
+  width: 300px;
+}
+
+.transcript-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listening-indicator {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ef4444;
+}
+
+.transcript-text {
+  font-size: 13px;
+  margin: 0;
+  color: var(--text-primary);
+  min-height: 20px;
+}
+
+.preset-voice-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.preset-label {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.preset-voice-chips button {
+  background: var(--bg-surface-hover, #1e293b);
+  border: 1px solid var(--border-color, #334155);
+  color: #38bdf8;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.preset-voice-chips button:hover {
+  background: #334155;
+}
+
+.controls-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.controls-row button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-btn.listening {
+    animation: none;
+  }
+}
