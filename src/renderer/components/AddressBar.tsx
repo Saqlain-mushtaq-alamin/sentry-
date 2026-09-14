@@ -92,6 +92,8 @@ export const AddressBar: React.FC<AddressBarProps> = ({
     >
       {/* Navigation Buttons */}
       <button
+        id="nav-btn-back"
+        title="Go Back (Alt+Left)"
         disabled={!activeTab?.canGoBack}
         onClick={onGoBack}
         style={{
@@ -99,15 +101,27 @@ export const AddressBar: React.FC<AddressBarProps> = ({
           background: 'transparent',
           color: activeTab?.canGoBack ? '#f3f4f6' : '#4b5563',
           cursor: activeTab?.canGoBack ? 'pointer' : 'default',
-          fontSize: '14px',
-          padding: '4px 6px',
+          fontSize: '15px',
+          padding: '4px 8px',
           borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (activeTab?.canGoBack) e.currentTarget.style.background = '#374151';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent';
         }}
       >
         ←
       </button>
 
       <button
+        id="nav-btn-forward"
+        title="Go Forward (Alt+Right)"
         disabled={!activeTab?.canGoForward}
         onClick={onGoForward}
         style={{
@@ -115,25 +129,43 @@ export const AddressBar: React.FC<AddressBarProps> = ({
           background: 'transparent',
           color: activeTab?.canGoForward ? '#f3f4f6' : '#4b5563',
           cursor: activeTab?.canGoForward ? 'pointer' : 'default',
-          fontSize: '14px',
-          padding: '4px 6px',
+          fontSize: '15px',
+          padding: '4px 8px',
           borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (activeTab?.canGoForward) e.currentTarget.style.background = '#374151';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent';
         }}
       >
         →
       </button>
 
       <button
+        id="nav-btn-reload"
+        title={activeTab?.isLoading ? "Stop Loading (Esc)" : "Reload Page (Ctrl+R / F5)"}
         onClick={onReload}
         style={{
           border: 'none',
           background: 'transparent',
           color: '#f3f4f6',
           cursor: 'pointer',
-          fontSize: '14px',
-          padding: '4px 6px',
+          fontSize: '15px',
+          padding: '4px 8px',
           borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 0.15s ease',
         }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = '#374151')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
         {activeTab?.isLoading ? '✕' : '↻'}
       </button>
