@@ -265,8 +265,8 @@ export class PageObserver {
 
   private extractVisibleText(node: SimplifiedDOM): string {
     if (node.tag === '#text') return node.text ?? '';
+    if (node.children.length === 0) return node.text ?? '';
     const parts: string[] = [];
-    if (node.text) parts.push(node.text);
     for (const child of node.children) {
       const t = this.extractVisibleText(child);
       if (t) parts.push(t);
