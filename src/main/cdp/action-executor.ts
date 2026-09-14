@@ -32,11 +32,23 @@ export class ActionExecutor {
     let error: string | undefined;
 
     try {
-      beforeSnapshot = await this.observer.getPageSnapshot(tabId);
+      try {
+        beforeSnapshot = await this.observer.getPageSnapshot(tabId);
+      } catch {
+        // Ignored — page may be internal sentry:// or currently navigating
+      }
       
-      const selector = action.target 
-        ? this.resolver.resolve({ kind: 'selector', value: action.target }, beforeSnapshot) 
-        : undefined;
+      let selector: string | undefined;
+      if (action.target) {
+        const indexMatch = action.target.trim().match(/^\[?(\d+)\]?$/);
+        if (indexMatch && beforeSnapshot) {
+          selector = this.resolver.resolve({ kind: 'index', value: indexMatch[1]! }, beforeSnapshot);
+        } else if (beforeSnapshot) {
+          selector = this.resolver.resolve({ kind: 'selector', value: action.target }, beforeSnapshot) || action.target;
+        } else {
+          selector = action.target;
+        }
+      }
 
       switch (action.type) {
         case 'click':
@@ -58,7 +70,7 @@ export class ActionExecutor {
           success = await this.doHover(tabId, selector);
           break;
         case 'navigate':
-          success = await this.doNavigate(tabId, action.value);
+          success = await this.doNavigate(tabId, action.value || action.target);
           break;
         case 'goBack':
           success = await this.doEval(tabId, 'window.history.back()');
