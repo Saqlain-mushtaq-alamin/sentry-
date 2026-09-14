@@ -80,7 +80,7 @@ declare global {
         getDefaults: () => Promise<string[]>;
       };
       agent: {
-        runTask: (instruction: string) => Promise<{ success: boolean; result?: unknown; error?: string }>;
+        runTask: (instruction: string) => Promise<{ success: boolean; result?: import('../shared/types').TaskResult; error?: string }>;
         pause: () => Promise<boolean>;
         resume: () => Promise<boolean>;
         stop: () => Promise<boolean>;
