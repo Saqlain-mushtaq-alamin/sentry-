@@ -81,3 +81,46 @@ describe('PageCache', () => {
     expect(cache.get('tab1', 'https://test.com')).toBeUndefined();
   });
 });
+
+describe('PageObserver', () => {
+  it('parses nodes with id and class attributes without CSS.escape error', async () => {
+    const { PageObserver } = await import('../../../src/main/cdp/page-observer');
+    const mockCdp = {
+      send: (async (_tabId: string, method: string) => {
+        if (method === 'DOM.getDocument') {
+          return {
+            root: {
+              nodeId: 1,
+              nodeType: 1,
+              nodeName: 'body',
+              children: [
+                {
+                  nodeId: 2,
+                  nodeType: 1,
+                  nodeName: 'button',
+                  attributes: ['id', 'btn-login.submit', 'class', 'primary-btn active', 'type', 'button'],
+                  children: [
+                    { nodeId: 3, nodeType: 3, nodeName: '#text', nodeValue: 'Click Me' }
+                  ]
+                }
+              ]
+            }
+          };
+        }
+        if (method === 'Accessibility.getFullAXTree') return { nodes: [] };
+        if (method === 'Runtime.evaluate') {
+          return { result: { value: JSON.stringify({ url: 'https://test.com', title: 'Test Title', innerText: 'Click Me' }) } };
+        }
+        return undefined;
+      })
+    } as any;
+
+    const observer = new PageObserver(mockCdp);
+    const snapshot = await observer.getPageSnapshot('tab-1');
+    expect(snapshot.url).toBe('https://test.com');
+    expect(snapshot.interactiveElements.length).toBe(1);
+    expect(snapshot.interactiveElements[0]?.selector).toBe('#btn-login\\.submit');
+    expect(snapshot.interactiveElements[0]?.label).toBe('Click Me');
+    expect(snapshot.visibleText).toBe('Click Me');
+  });
+});
