@@ -63,7 +63,9 @@ declare global {
         get: () => Promise<UserSettings>;
         update: (settings: Partial<UserSettings>) => Promise<UserSettings>;
       };
-
+      view: {
+        setLayoutOffsets: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) => Promise<void>;
+      };
 
       extensions: {
         getAll: () => Promise<import('../shared/types').LoadedExtension[]>;
@@ -108,9 +110,13 @@ declare global {
         onRoutingDecision: (callback: (decision: any) => void) => () => void;
         onDeveloperStatsUpdated: (callback: (stats: DeveloperSessionStats) => void) => () => void;
         onStepTraceAdded: (callback: (step: TraceStep) => void) => () => void;
+        onToggleCommandBox?: (callback: () => void) => () => void;
+        onShortcutPauseResume?: (callback: () => void) => () => void;
+        onShortcutStop?: (callback: () => void) => () => void;
       };
       onTabsUpdated: (callback: (tabs: TabItem[]) => void) => () => void;
       onDownloadsUpdated: (callback: (downloads: DownloadItem[]) => void) => () => void;
+      onInternalPageReload?: (callback: (url: string) => void) => () => void;
     };
   }
 }
@@ -143,6 +149,15 @@ export default function App(): React.JSX.Element {
   const [routingDecision, setRoutingDecision] = useState<any>(null);
   const [lastInstruction, setLastInstruction] = useState<string>('');
   const [multiTabTask, setMultiTabTask] = useState<MultiTabTask | null>(null);
+  const [isAgentBoxExpanded, setIsAgentBoxExpanded] = useState(false);
+
+  // Sync WebContentsView layout offsets (bottom dock for Agent Command Box and right sidebar)
+  useEffect(() => {
+    if (!window.sentry?.view?.setLayoutOffsets) return;
+    const bottomOffset = isAgentBoxExpanded ? 210 : 38;
+    const rightOffset = isSidebarOpen ? 340 : 0;
+    window.sentry.view.setLayoutOffsets({ bottomOffset, rightOffset });
+  }, [isAgentBoxExpanded, isSidebarOpen]);
 
   // Load initial data
   const loadInitialData = useCallback(async () => {
@@ -196,6 +211,10 @@ export default function App(): React.JSX.Element {
         setRoutingDecision(decision);
       });
 
+      const unsubReload = window.sentry.onInternalPageReload?.(() => {
+        loadInitialData();
+      });
+
       return () => {
         unsubTabs();
         unsubDownloads();
@@ -203,6 +222,7 @@ export default function App(): React.JSX.Element {
         if (unsubState) unsubState();
         if (unsubInjection) unsubInjection();
         if (unsubRouting) unsubRouting();
+        if (unsubReload) unsubReload();
       };
     }
   }, [loadInitialData]);
@@ -479,9 +499,11 @@ export default function App(): React.JSX.Element {
           alignItems: 'center',
           background: '#0d1117',
           WebkitAppRegion: 'drag',
+          userSelect: 'none',
         } as React.CSSProperties}
+        onDoubleClick={handleMaximize}
       >
-        <div style={{ flexGrow: 1, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'drag' } as React.CSSProperties}>
           <TabBar
             tabs={tabs}
             activeTabId={activeTabId}
@@ -492,6 +514,17 @@ export default function App(): React.JSX.Element {
             onTogglePinTab={handleTogglePinTab}
           />
         </div>
+
+        {/* Draggable Titlebar Spacer: allows dragging window anywhere across the screen */}
+        <div
+          style={{
+            flexGrow: 1,
+            height: '40px',
+            WebkitAppRegion: 'drag',
+            cursor: 'default',
+          } as React.CSSProperties}
+          onDoubleClick={handleMaximize}
+        />
 
         {/* Notification Bell & Companion Sidebar Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag', paddingRight: '8px' } as React.CSSProperties}>
@@ -660,7 +693,7 @@ export default function App(): React.JSX.Element {
           />
         )}
 
-        {/* Floating Agent Command Box (Ctrl+Shift+Space) */}
+        {/* Agent Command Box (Ctrl+Shift+Space) */}
         <AgentCommandBox
           onSendTask={handleSendTask}
           onPause={handlePause}
@@ -669,6 +702,7 @@ export default function App(): React.JSX.Element {
           taskState={taskState}
           lastInstruction={lastInstruction}
           onSaveRecipe={handleSaveRecipe}
+          onExpandedChange={setIsAgentBoxExpanded}
         />
       </div>
     </div>
