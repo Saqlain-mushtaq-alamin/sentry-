@@ -22,11 +22,19 @@ export class ActionFirewall {
     action: ProposedAction,
     pageSnapshot: PageSnapshot
   ): Promise<FirewallDecision> {
-    const urlObj = new URL(action.url);
-    const domain = urlObj.hostname;
+    // Safe URL parsing — sentry:// and empty URLs must not crash the firewall
+    let domain = action.url || '';
+    try {
+      if (action.url && (action.url.startsWith('http://') || action.url.startsWith('https://'))) {
+        domain = new URL(action.url).hostname;
+      }
+    } catch {
+      domain = action.url || 'unknown';
+    }
     
     // 1. Check site trust
-    const siteTrust = this.trustManager.getTrustLevel(action.url);
+    const siteTrust = this.trustManager.getTrustLevel(action.url || 'about:blank');
+
     
     // 2. Classify action
     const classification = this.classifier.classifyAction(action, pageSnapshot, siteTrust);
