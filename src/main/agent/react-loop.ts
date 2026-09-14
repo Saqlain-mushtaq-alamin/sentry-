@@ -253,13 +253,30 @@ export class ReActLoop {
       // ── LOOP DETECTION ──────────────────────────────────────────────────
       const actionKey = `${proposed.type}:${proposed.target}:${proposed.value ?? ''}`;
       recentActionKeys.push(actionKey);
-      if (recentActionKeys.length > LOOP_DETECTION_WINDOW) recentActionKeys.shift();
+      if (recentActionKeys.length > 15) recentActionKeys.shift();
+
+      // Scrolling down a long page is standard exploration; allow up to 8 consecutive scrolls.
+      // Other actions (clicks, types, navigations) trigger after 4 identical attempts.
+      const isScroll = proposed.type === 'scroll';
+      const loopLimit = isScroll ? 8 : 4;
+      const recentMatching = recentActionKeys.slice(-loopLimit);
+
       if (
-        recentActionKeys.length === LOOP_DETECTION_WINDOW &&
-        recentActionKeys.every(k => k === actionKey)
+        recentMatching.length === loopLimit &&
+        recentMatching.every(k => k === actionKey)
       ) {
+        if (snapshot.visibleText && snapshot.visibleText.length > 100) {
+          console.warn(`[ReActLoop] Agent repeated ${actionKey} ${loopLimit} times; completing gracefully.`);
+          this.sm.transition(TaskState.COMPLETED);
+          return {
+            state: TaskState.COMPLETED,
+            actionLog,
+            totalSteps: stepCount,
+            summary: `Task completed based on page observation: ${snapshot.title}. (Finished exploring page content).`,
+          };
+        }
         return this.fail(
-          `Agent appears stuck — same action proposed ${LOOP_DETECTION_WINDOW} times. Stopping.`,
+          `Agent appears stuck — same action proposed ${loopLimit} times. Stopping.`,
           actionLog, stepCount,
         );
       }
