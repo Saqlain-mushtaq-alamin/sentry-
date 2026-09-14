@@ -62,9 +62,16 @@ export class ActionParser {
     }
 
     const thought = String(parsed['thought'] ?? action['thought'] ?? 'No thought provided');
-    const reason = String(action['reason'] ?? 'No reason provided');
-    const target = action['target'] !== undefined ? String(action['target']) : undefined;
-    const value  = action['value']  !== undefined ? String(action['value'])  : undefined;
+    let target = action['target'] !== undefined ? String(action['target']) : undefined;
+    let value  = action['value']  !== undefined ? String(action['value'])  : undefined;
+
+    if (type === 'navigate') {
+      if (!value && target) value = target;
+      if (!target && value) target = value;
+    }
+
+    const fallbackReason = thought !== 'No thought provided' ? thought : (type === 'navigate' && (value || target) ? `Navigating to ${value || target}` : 'Executing requested action');
+    const reason = String(action['reason'] ?? fallbackReason);
 
     return {
       ok: true,
