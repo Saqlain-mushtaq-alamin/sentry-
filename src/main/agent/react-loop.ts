@@ -37,6 +37,8 @@ export class ReActLoop {
   private injectionDetectedCallback?: (report: any) => void;
   private stepTraceCallback?: (step: TraceStep, trace: TaskTrace) => void;
 
+  private navigateCallback?: (tabId: string, url: string) => Promise<void>;
+
   constructor(
     private adapter: ModelAdapter,
     private executor: ActionExecutor,
@@ -44,6 +46,11 @@ export class ReActLoop {
     private observer: PageObserver,
     private detector?: InjectionDetector,
   ) {}
+
+  /** Register a native navigation handler (for sentry:// tabs where CDP can't do window.location) */
+  onNavigate(cb: (tabId: string, url: string) => Promise<void>): void {
+    this.navigateCallback = cb;
+  }
 
   /** Register a callback for trace steps */
   onStepTrace(cb: (step: TraceStep, trace: TaskTrace) => void): void {
@@ -91,10 +98,29 @@ export class ReActLoop {
       const obsStart = Date.now();
       let snapshot;
       try {
-        snapshot = await this.observer.getPageSnapshot(task.tabId);
+        // Check if the current URL is an internal sentry:// page — CDP won't work there
+        const currentTabUrl = task.context.currentUrl || '';
+        if (currentTabUrl.startsWith('sentry://') || currentTabUrl === '' || currentTabUrl === 'about:blank') {
+          // Provide a dummy snapshot so the agent can decide to navigate somewhere
+          snapshot = {
+            url: currentTabUrl || 'sentry://newtab',
+            title: 'New Tab',
+            timestamp: Date.now(),
+            dom: { tag: 'body', children: [] },
+            accessibilityTree: [],
+            visibleText: 'You are on the Sentry browser new tab or internal page. To start a task, navigate to a real website first.',
+            forms: [],
+            links: [],
+            interactiveElements: [],
+            estimatedTokenCount: 50,
+          };
+        } else {
+          snapshot = await this.observer.getPageSnapshot(task.tabId);
+        }
       } catch (err) {
         return this.fail(`Failed to observe page: ${err}`, actionLog, stepCount);
       }
+
       const obsLatency = Date.now() - obsStart;
 
       // ── SCAN FOR INJECTIONS ──────────────────────────────────────────────
@@ -275,7 +301,22 @@ export class ReActLoop {
       const execStart = Date.now();
       let execResult;
       try {
-        execResult = await this.executor.execute(task.tabId, actionRequest);
+        // For 'navigate' actions, use the native TabManager navigation when available
+        // (CDP's Runtime.evaluate window.location.href doesn't work on sentry:// internal pages)
+        if (parsedAction.type === 'navigate' && this.navigateCallback && parsedAction.value) {
+          let url = parsedAction.value;
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+          }
+          await this.navigateCallback(task.tabId, url);
+          // Update the task context URL so next observation uses the real page
+          task.context.currentUrl = url;
+          execResult = { success: true, duration: Date.now() - execStart };
+          // Wait for page to begin loading
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          execResult = await this.executor.execute(task.tabId, actionRequest);
+        }
       } catch (err) {
         execResult = { success: false, error: String(err), duration: 0 };
       }
