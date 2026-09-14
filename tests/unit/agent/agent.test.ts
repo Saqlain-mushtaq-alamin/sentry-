@@ -91,6 +91,24 @@ describe('ActionParser', () => {
       expect(result.action.reason).toBe('Need to go to google');
     }
   });
+
+  it('normalizes case and aliases like goback, go_back, and goforward', () => {
+    const raw1 = JSON.stringify({
+      thought: 'Going back',
+      action: { type: 'goback', reason: 'previous page' }
+    });
+    const result1 = parser.parse(raw1);
+    expect(result1.ok).toBe(true);
+    if (result1.ok) expect(result1.action.type).toBe('goBack');
+
+    const raw2 = JSON.stringify({
+      thought: 'Going forward',
+      action: { type: 'goforward', reason: 'next page' }
+    });
+    const result2 = parser.parse(raw2);
+    expect(result2.ok).toBe(true);
+    if (result2.ok) expect(result2.action.type).toBe('goForward');
+  });
 });
 
 // ─── TaskStateMachine tests ───────────────────────────────────────────────────
