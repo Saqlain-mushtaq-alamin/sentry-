@@ -23,7 +23,6 @@ import { InjectionDetector } from '../action-layer/injection-detector';
 
 const MAX_STEPS = 30;
 const MAX_PARSE_RETRIES = 3;
-const LOOP_DETECTION_WINDOW = 3; // if same action proposed 3 times → stop
 
 export class ReActLoop {
   private sm = new TaskStateMachine();
