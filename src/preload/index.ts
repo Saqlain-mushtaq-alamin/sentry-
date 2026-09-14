@@ -109,6 +109,10 @@ contextBridge.exposeInMainWorld('sentry', {
       ipcRenderer.on('agent:step-trace-added', handler);
       return () => ipcRenderer.removeListener('agent:step-trace-added', handler);
     },
+    getModelConfig: () => ipcRenderer.invoke('agent:get-model-config'),
+    setModelConfig: (config: { localModel: string; cloudModel: string; routingMode: string }) => ipcRenderer.invoke('agent:set-model-config', config),
+    listOllamaModels: () => ipcRenderer.invoke('agent:list-ollama-models'),
+    checkOllama: () => ipcRenderer.invoke('agent:check-ollama'),
   },
 
   extensions: {
@@ -117,6 +121,13 @@ contextBridge.exposeInMainWorld('sentry', {
     chooseAndLoad: () => ipcRenderer.invoke('extensions:choose-and-load'),
     unload: (id: string) => ipcRenderer.invoke('extensions:unload', id),
     toggle: (id: string, enabled: boolean) => ipcRenderer.invoke('extensions:toggle', id, enabled),
+  },
+
+  // Trust Management
+  trust: {
+    getAll: () => ipcRenderer.invoke('trust:get-all'),
+    setLevel: (domain: string, level: string) => ipcRenderer.invoke('trust:set-level', domain, level),
+    getDefaults: () => ipcRenderer.invoke('trust:get-defaults'),
   },
 
   // Subscriptions
@@ -131,3 +142,4 @@ contextBridge.exposeInMainWorld('sentry', {
     return () => ipcRenderer.removeListener('downloads:updated', handler);
   },
 });
+
