@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, globalShortcut } from 'electron';
 import path from 'path';
 import { StorageManager } from './browser/storage-manager';
 import { TabManager } from './browser/tab-manager';
@@ -116,8 +116,28 @@ ipcMain.handle('extensions:choose-and-load', async () => {
 ipcMain.handle('extensions:unload', async (_, id: string) => extensionManager.unloadExtension(id));
 ipcMain.handle('extensions:toggle', async (_, id: string, enabled: boolean) => extensionManager.toggleExtension(id, enabled));
 
-app.whenReady().then(createWindow);
+// View Layout IPC Handlers
+ipcMain.handle('view:set-layout-offsets', (_, offsets) => tabManager.setLayoutOffsets(offsets));
+
+app.whenReady().then(() => {
+  createWindow();
+
+  try {
+    globalShortcut.register('CommandOrControl+Shift+Space', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('agent:toggle-command-box');
+      }
+    });
+  } catch (err) {
+    console.error('Failed to register global shortcut:', err);
+  }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
