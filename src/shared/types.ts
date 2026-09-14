@@ -318,53 +318,6 @@ export interface SiteTrustEntry {
   notes?: string;
 }
 
-/** Phase 9: Task Memory Recipes */
-export interface Recipe {
-  id: string;
-  name: string;                    // User-assigned name
-  description: string;             // Auto-generated or user-edited
-  version: number;                 // Increments on edit
-  steps: RecipeStep[];
-  variables: RecipeVariable[];     // Parameterizable values
-  sitePatterns: string[];          // URL patterns this recipe targets
-  createdAt: number;
-  lastUsedAt: number;
-  useCount: number;
-  tags: string[];
-  isPublic: boolean;               // Could be shared (future feature)
-}
-
-export interface WaitCondition {
-  type: 'networkIdle' | 'elementVisible' | 'textPresent' | 'time';
-  target?: string;
-  timeoutMs: number;
-}
-
-export interface RecipeStep {
-  order: number;
-  actionType: string;              // click, type, navigate, etc.
-  target: ElementSelector;         // How to find the target element
-  value?: string | { type: 'variable'; name: string };  // Static value or variable reference
-  waitCondition?: WaitCondition;   // What to wait for after this step
-  fallback?: RecipeStep;           // Alternative if this step fails
-  riskTier: RiskTier;              // Recorded from original execution
-}
-
-export interface RecipeVariable {
-  name: string;                    // e.g., "searchQuery", "departureCity"
-  description: string;             // "What to search for"
-  type: 'text' | 'number' | 'date' | 'select';
-  defaultValue?: string;
-  required: boolean;
-}
-
-export interface ElementSelector {
-  primary: string;                 // CSS selector
-  fallbacks: string[];             // Alternative selectors if primary fails
-  textContent?: string;            // Expected text (for validation)
-  ariaLabel?: string;              // Expected ARIA label
-  role?: string;                   // Expected ARIA role
-}
 export interface PermissionGrant {
   id: string;
   domain: string;
