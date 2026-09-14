@@ -39,6 +39,7 @@ export class ModelRouter {
 
   public async route(context: RoutingContext): Promise<RoutingDecision> {
     const isLocalAvailable = await this.localAdapter.isAvailable();
+    const hasRealCloud = this.cloudAdapter.providerId !== 'mock';
     const mode = this.config.routingMode;
 
     if (mode === 'local_only') {
@@ -52,6 +53,16 @@ export class ModelRouter {
       return this.makeDecision(this.cloudAdapter, 'User configured cloud-only mode.', true);
     }
 
+    // If there is no real cloud API key configured (cloudAdapter is mock) and local model IS available,
+    // ALWAYS use the real local model! Never route to a mock dummy when local Ollama is active.
+    if (!hasRealCloud && isLocalAvailable) {
+      return this.makeDecision(
+        this.localAdapter,
+        `Local model (${this.localAdapter.modelId}) active via Ollama.`,
+        false,
+      );
+    }
+
     const complexity = this.estimateComplexity(context);
 
     if (mode === 'prefer_local') {
@@ -62,9 +73,9 @@ export class ModelRouter {
     }
 
     // Auto mode
-    if (complexity === 'simple' || complexity === 'moderate') {
+    if (complexity === 'simple' || complexity === 'moderate' || !hasRealCloud) {
       if (isLocalAvailable) {
-        return this.makeDecision(this.localAdapter, `Auto mode: Task is ${complexity}, using local model.`, false);
+        return this.makeDecision(this.localAdapter, `Auto mode: Task is ${complexity}, using local model (${this.localAdapter.modelId}).`, false);
       }
     }
 
