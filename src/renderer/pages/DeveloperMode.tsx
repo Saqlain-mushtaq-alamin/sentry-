@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { DeveloperSessionStats, BenchmarkResults, TaskTrace } from '../../shared/types';
 import { PromptInspector } from '../components/PromptInspector';
-import { TraceExporter } from '../../main/agent/trace-exporter';
 import './DeveloperMode.css';
+
 
 export const DeveloperModePage: React.FC = () => {
   const [developerEnabled, setDeveloperEnabled] = useState<boolean>(true);
@@ -351,11 +351,10 @@ export const DeveloperModePage: React.FC = () => {
               disabled={!activeTrace}
               onClick={async () => {
                 if (!activeTrace) return;
-                const jsonStr = (window as any).sentry?.agent?.exportTrace
-                  ? await (window as any).sentry.agent.exportTrace(activeTrace, 'json')
-                  : TraceExporter.exportToJson(activeTrace);
-                const fname = TraceExporter.generateFilename(activeTrace.task.instruction, 'json');
-                handleDownloadFile(jsonStr, fname);
+                const jsonStr = await (window as any).sentry?.agent?.exportTrace(activeTrace, 'json')
+                  ?? JSON.stringify(activeTrace, null, 2);
+                const slug = (activeTrace.task.instruction || 'trace').slice(0, 30).replace(/\s+/g, '_');
+                handleDownloadFile(jsonStr, `sentry_trace_${slug}.json`);
               }}
             >
               Export Full Trace (JSON)
@@ -366,11 +365,10 @@ export const DeveloperModePage: React.FC = () => {
               disabled={!activeTrace}
               onClick={async () => {
                 if (!activeTrace) return;
-                const mdStr = (window as any).sentry?.agent?.exportTrace
-                  ? await (window as any).sentry.agent.exportTrace(activeTrace, 'md')
-                  : TraceExporter.exportToMarkdown(activeTrace);
-                const fname = TraceExporter.generateFilename(activeTrace.task.instruction, 'md');
-                handleDownloadFile(mdStr, fname);
+                const mdStr = await (window as any).sentry?.agent?.exportTrace(activeTrace, 'md')
+                  ?? JSON.stringify(activeTrace, null, 2);
+                const slug = (activeTrace.task.instruction || 'trace').slice(0, 30).replace(/\s+/g, '_');
+                handleDownloadFile(mdStr, `sentry_trace_${slug}.md`);
               }}
             >
               Export Full Trace (Markdown)
@@ -381,11 +379,10 @@ export const DeveloperModePage: React.FC = () => {
               disabled={!activeTrace}
               onClick={async () => {
                 if (!activeTrace) return;
-                const csvStr = (window as any).sentry?.agent?.exportTrace
-                  ? await (window as any).sentry.agent.exportTrace(activeTrace, 'csv')
-                  : TraceExporter.exportToCsv(activeTrace);
-                const fname = TraceExporter.generateFilename(activeTrace.task.instruction, 'csv');
-                handleDownloadFile(csvStr, fname);
+                const csvStr = await (window as any).sentry?.agent?.exportTrace(activeTrace, 'csv')
+                  ?? JSON.stringify(activeTrace, null, 2);
+                const slug = (activeTrace.task.instruction || 'trace').slice(0, 30).replace(/\s+/g, '_');
+                handleDownloadFile(csvStr, `sentry_trace_${slug}.csv`);
               }}
             >
               Export Full Trace (CSV)
@@ -408,6 +405,7 @@ export const DeveloperModePage: React.FC = () => {
               Reset Session Stats
             </button>
           </div>
+
         </>
       )}
     </div>
