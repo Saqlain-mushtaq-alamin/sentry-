@@ -56,6 +56,11 @@ export class OpenAIAdapter implements ModelAdapter {
       body: JSON.stringify(body),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+    }
+
     const data = await response.json() as {
       choices: Array<{ message: { content: string }; finish_reason: string }>;
       usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
