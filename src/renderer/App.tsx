@@ -150,14 +150,15 @@ export default function App(): React.JSX.Element {
   const [lastInstruction, setLastInstruction] = useState<string>('');
   const [multiTabTask, setMultiTabTask] = useState<MultiTabTask | null>(null);
   const [isAgentBoxExpanded, setIsAgentBoxExpanded] = useState(false);
+  const [lastAgentResult, setLastAgentResult] = useState<import('./components/AgentCommandBox').AgentResultData | null>(null);
 
   // Sync WebContentsView layout offsets (bottom dock for Agent Command Box and right sidebar)
   useEffect(() => {
     if (!window.sentry?.view?.setLayoutOffsets) return;
-    const bottomOffset = isAgentBoxExpanded ? 210 : 38;
+    const bottomOffset = isAgentBoxExpanded ? (lastAgentResult ? 300 : 210) : 38;
     const rightOffset = isSidebarOpen ? 340 : 0;
     window.sentry.view.setLayoutOffsets({ bottomOffset, rightOffset });
-  }, [isAgentBoxExpanded, isSidebarOpen]);
+  }, [isAgentBoxExpanded, isSidebarOpen, lastAgentResult]);
 
   // Load initial data
   const loadInitialData = useCallback(async () => {
@@ -274,6 +275,12 @@ export default function App(): React.JSX.Element {
         setTaskState(TaskState.COMPLETED);
         const summary = res.result?.summary;
         if (summary) {
+          setLastAgentResult({
+            instruction,
+            summary,
+            timestamp: Date.now(),
+          });
+          setIsAgentBoxExpanded(true);
           const spoken = summary.length > 120 ? `${summary.slice(0, 120)}...` : summary;
           window.sentry.agent.speak?.(spoken);
         } else {
@@ -690,6 +697,8 @@ export default function App(): React.JSX.Element {
           <AgentSidebar
             taskState={taskState}
             actionLog={actionLog}
+            lastResult={lastAgentResult}
+            onClearResult={() => setLastAgentResult(null)}
             onSendTask={handleSendTask}
             onPause={handlePause}
             onStop={handleStop}
@@ -708,6 +717,8 @@ export default function App(): React.JSX.Element {
           onResume={handleResume}
           taskState={taskState}
           lastInstruction={lastInstruction}
+          lastResult={lastAgentResult}
+          onClearResult={() => setLastAgentResult(null)}
           onSaveRecipe={handleSaveRecipe}
           onExpandedChange={setIsAgentBoxExpanded}
         />
