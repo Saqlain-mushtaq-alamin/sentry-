@@ -27,6 +27,9 @@ export class TrustManager {
   }
 
   public getTrustLevel(url: string): SiteTrustLevel {
+    if (!url || url.startsWith('sentry://') || url.startsWith('about:') || url === 'sentry://newtab') {
+      return SiteTrustLevel.READ_ACT; // Internal pages are always trusted
+    }
     const domain = this.extractDomain(url);
     
     // Check exact domain
