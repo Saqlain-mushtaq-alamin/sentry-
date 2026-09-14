@@ -239,6 +239,20 @@ export class AgentService {
         await new Promise(r => setTimeout(r, 200));
       });
 
+      this.reactLoop.onGoBack(async (tabId: string) => {
+        this.tabManager.goBack(tabId);
+        const activeTab = this.tabManager.getActiveTab();
+        if (activeTab?.url) task.context.currentUrl = activeTab.url;
+        await new Promise(r => setTimeout(r, 200));
+      });
+
+      this.reactLoop.onGoForward(async (tabId: string) => {
+        this.tabManager.goForward(tabId);
+        const activeTab = this.tabManager.getActiveTab();
+        if (activeTab?.url) task.context.currentUrl = activeTab.url;
+        await new Promise(r => setTimeout(r, 200));
+      });
+
       this.currentTraceSteps = [];
 
       this.reactLoop.onStepTrace((step, trace) => {
