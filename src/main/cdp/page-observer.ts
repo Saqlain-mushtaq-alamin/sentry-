@@ -209,13 +209,17 @@ export class PageObserver {
     return result;
   }
 
+  private escapeCss(str: string): string {
+    return str.replace(/([!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+  }
+
   private buildSelector(attrs: Record<string, string>, tag: string): string {
-    if (attrs['id']) return `#${CSS.escape(attrs['id'])}`;
+    if (attrs['id']) return `#${this.escapeCss(attrs['id'])}`;
     if (attrs['name']) return `${tag}[name="${attrs['name']}"]`;
     if (attrs['data-testid']) return `[data-testid="${attrs['data-testid']}"]`;
     if (attrs['class']) {
       const firstClass = attrs['class'].split(/\s+/)[0];
-      if (firstClass) return `${tag}.${CSS.escape(firstClass)}`;
+      if (firstClass) return `${tag}.${this.escapeCss(firstClass)}`;
     }
     return tag;
   }
