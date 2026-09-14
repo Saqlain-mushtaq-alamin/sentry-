@@ -52,7 +52,11 @@ export class ContextManager {
     }
 
     // 3. Current page snapshot (most important — always include)
-    const snapshotText = formatSnapshotForModel(currentSnapshot, this.SNAPSHOT_BUDGET);
+    const snapshotText = formatSnapshotForModel(
+      currentSnapshot,
+      this.SNAPSHOT_BUDGET,
+      task.instruction,
+    );
     messages.push({
       role: 'user',
       content: `Current page state:\n${snapshotText}\n\nWhat is your next action?`,
