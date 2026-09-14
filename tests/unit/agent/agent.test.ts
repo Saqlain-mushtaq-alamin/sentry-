@@ -77,16 +77,18 @@ describe('ActionParser', () => {
     if (result.ok) expect(result.action.type).toBe('done');
   });
 
-  it('parses navigate action', () => {
+  it('parses navigate action and synchronizes target and value', () => {
     const raw = JSON.stringify({
       thought: 'Need to go to google',
-      action: { type: 'navigate', target: 'https://google.com', reason: 'Navigate to search engine' }
+      action: { type: 'navigate', target: 'https://google.com' }
     });
     const result = parser.parse(raw);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.action.type).toBe('navigate');
       expect(result.action.target).toBe('https://google.com');
+      expect(result.action.value).toBe('https://google.com');
+      expect(result.action.reason).toBe('Need to go to google');
     }
   });
 });
