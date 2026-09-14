@@ -148,11 +148,15 @@ export class RiskClassifier {
     // 1. Resolve target element
     let targetElement: InteractiveElement | undefined;
     if (action.target) {
-      if (action.target.startsWith('#') && !isNaN(parseInt(action.target.replace('#', '')))) {
-         const idx = parseInt(action.target.replace('#', ''));
-         targetElement = pageSnapshot.interactiveElements.find(e => e.index === idx);
+      const numMatch = action.target.trim().match(/^\[?(\d+)\]?$/);
+      if (numMatch) {
+        const idx = parseInt(numMatch[1]!, 10);
+        targetElement = pageSnapshot.interactiveElements.find(e => e.index === idx);
+      } else if (action.target.startsWith('#') && !isNaN(parseInt(action.target.replace('#', '')))) {
+        const idx = parseInt(action.target.replace('#', ''));
+        targetElement = pageSnapshot.interactiveElements.find(e => e.index === idx);
       } else {
-         targetElement = pageSnapshot.interactiveElements.find(e => e.selector === action.target);
+        targetElement = pageSnapshot.interactiveElements.find(e => e.selector === action.target);
       }
     }
 
