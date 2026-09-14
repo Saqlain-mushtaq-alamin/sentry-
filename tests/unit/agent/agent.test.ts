@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ActionParser } from '../../../src/main/agent/action-parser';
 import { ContextManager } from '../../../src/main/agent/context-manager';
 import { TaskStateMachine } from '../../../src/main/agent/task-state-machine';
+import { formatSnapshotForModel } from '../../../src/main/agent/prompts/system-prompt';
 import { TaskState, AgentTask, PageSnapshot, ActionLogEntry, RiskTier, TaskState as TS } from '../../../src/shared/types';
 
 // ─── ActionParser tests ───────────────────────────────────────────────────────
@@ -217,5 +218,62 @@ describe('ContextManager', () => {
     const msgs = cm.buildMessageHistory(task, emptySnapshot, [mockEntry], 128_000);
     const histMsg = msgs.find(m => m.content.includes('Previous steps'));
     expect(histMsg).toBeDefined();
+  });
+});
+
+// ─── formatSnapshotForModel tests ─────────────────────────────────────────────
+
+describe('formatSnapshotForModel', () => {
+  it('preserves visible page text even with hundreds of interactive elements', () => {
+    // Generate 300 interactive elements like a Wikipedia article
+    const manyElements = Array.from({ length: 300 }, (_, i) => ({
+      index: i,
+      tag: 'a',
+      role: 'link',
+      label: `Article Reference Link ${i}`,
+      selector: `#link-${i}`,
+      boundingBox: { x: 0, y: 0, width: 10, height: 10 },
+      isVisible: true,
+      isEnabled: true,
+    }));
+
+    const snapshot: PageSnapshot = {
+      url: 'https://en.wikipedia.org/wiki/Wiki',
+      title: 'Wiki - Wikipedia',
+      timestamp: Date.now(),
+      dom: { tag: 'body', children: [] },
+      accessibilityTree: [],
+      visibleText: 'Ward Cunningham started developing WikiWikiWeb in 1994, and installed it on c2.com on March 25, 1995.',
+      forms: [],
+      links: [],
+      interactiveElements: manyElements,
+      estimatedTokenCount: 500,
+    };
+
+    const formatted = formatSnapshotForModel(snapshot, 6000);
+    expect(formatted).toContain('### Visible Page Text');
+    expect(formatted).toContain('March 25, 1995');
+    expect(formatted).toContain('### Interactive Elements');
+  });
+
+  it('extracts relevant page content matching query terms when page is long', () => {
+    const longText = 'A'.repeat(15000) + ' Wiki started on March 25, 1995 when Ward Cunningham launched it. ' + 'B'.repeat(10000);
+
+    const snapshot: PageSnapshot = {
+      url: 'https://en.wikipedia.org/wiki/Wiki',
+      title: 'Wiki - Wikipedia',
+      timestamp: Date.now(),
+      dom: { tag: 'body', children: [] },
+      accessibilityTree: [],
+      visibleText: longText,
+      forms: [],
+      links: [],
+      interactiveElements: [],
+      estimatedTokenCount: 6000,
+    };
+
+    const formatted = formatSnapshotForModel(snapshot, 6000, 'find the starting date of wiki from this site');
+    expect(formatted).toContain('### Relevant Page Content');
+    expect(formatted).toContain('March 25, 1995');
   });
 });
