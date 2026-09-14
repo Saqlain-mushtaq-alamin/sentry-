@@ -44,6 +44,8 @@ export class AgentService {
   private tabManager: TabManager;
   private mainWindow: BrowserWindow;
   private actionHistory: ActionLogEntry[] = [];
+  private trustManager: TrustManager;
+
 
   private currentDeveloperStats: DeveloperSessionStats = {
     tasksCompleted: 0,
@@ -91,11 +93,11 @@ export class AgentService {
 
     this.cdp = new CDPManager((tabId) => this.tabManager.getView(tabId));
     const classifier = new RiskClassifier();
-    const trustManager = new TrustManager();
+    this.trustManager = new TrustManager();
     const permissionManager = new PermissionManager();
     const auditLog = new AuditLog();
 
-    this.firewall = new ActionFirewall(classifier, trustManager, permissionManager, auditLog);
+    this.firewall = new ActionFirewall(classifier, this.trustManager, permissionManager, auditLog);
     this.observer = new PageObserver(this.cdp);
     this.resolver = new ElementResolver();
     this.actionExecutor = new ActionExecutor(this.cdp, this.observer, this.resolver);
@@ -142,21 +144,37 @@ export class AgentService {
         step++;
         let action;
         
-        if (step === 1) {
-          action = { type: 'scroll', direction: 'down', amount: 500, reason: 'Mock scrolling down.' };
+        // Try to extract a URL or domain from the user instruction
+        const userMsg = req.messages.find(m => m.role === 'user')?.content || '';
+        const taskMsg = req.messages[0]?.content || '';
+        const combined = `${taskMsg} ${userMsg}`;
+        
+        const urlMatch = combined.match(/https?:\/\/[^\s"']+|(?:go to|navigate to|open|visit)\s+([a-zA-Z0-9-]+\.(?:com|org|net|io|dev|ai|gov|edu)[^\s"']*)/i);
+        
+        if (step === 1 && urlMatch) {
+          let url = urlMatch[0];
+          // Clean up "go to" prefix if present
+          if (!url.startsWith('http')) {
+            url = 'https://' + (urlMatch[1] || url.replace(/^(?:go to|navigate to|open|visit)\s+/i, ''));
+          }
+          action = { type: 'navigate', value: url, reason: `Navigating to ${url} as requested.` };
+        } else if (step === 1) {
+          action = { type: 'scroll', direction: 'down', amount: 500, reason: 'Mock: scanning page content.' };
         } else {
-          action = { type: 'done', reason: 'Mock task completed! (Set an API key or install Ollama for real tasks)' };
+          action = { type: 'done', reason: 'Mock task completed! Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable, or install Ollama (ollama.com) for real AI-powered tasks.' };
           step = 0;
         }
 
         return {
           content: JSON.stringify({
-            thought: `Simulating step ${step}.`,
+            thought: step === 1
+              ? `I see the current page state. I will now perform: ${action.type}.`
+              : `Task appears complete. Real AI requires an API key or Ollama running locally.`,
             action
           }),
           tokenUsage: { prompt: 50, completion: 50, total: 100 },
           cost: 0,
-          latencyMs: 800,
+          latencyMs: 400,
           modelId: 'mock-llm',
         };
       },
@@ -168,7 +186,10 @@ export class AgentService {
 
   private registerIpcHandlers(): void {
     ipcMain.handle('agent:run-task', async (_, instruction: string) => {
-      const activeTabId = this.tabManager.getActiveTab()?.id || 'tab-default';
+      const activeTab = this.tabManager.getActiveTab();
+      const activeTabId = activeTab?.id || 'tab-default';
+      // Use the actual tab URL, not the renderer dev server URL
+      const activeTabUrl = activeTab?.url || 'sentry://newtab';
       
       const task: AgentTask = {
         id: crypto.randomUUID(),
@@ -179,14 +200,17 @@ export class AgentService {
           userInstruction: instruction,
           currentStep: 0,
           totalSteps: 30,
-          currentUrl: this.mainWindow.webContents.getURL() || 'https://google.com',
+          currentUrl: activeTabUrl,
         },
       };
+
+      // Notify UI that agent is starting
+      this.mainWindow.webContents.send('agent:state-changed', TaskState.EXECUTING);
 
       const routingContext: RoutingContext = {
         task,
         actionLog: this.actionHistory,
-        pageContentLength: 5000, // rough estimate, could fetch snapshot first
+        pageContentLength: 5000,
       };
 
       const routingDecision = await this.modelRouter.route(routingContext);
@@ -202,6 +226,16 @@ export class AgentService {
         this.observer,
         this.detector,
       );
+
+      // Wire up native navigation — agent navigate actions go through TabManager,
+      // not CDP window.location.href (which doesn't work on sentry:// internal pages)
+      this.reactLoop.onNavigate(async (tabId: string, url: string) => {
+        this.tabManager.navigate(tabId, url);  // synchronous in TabManager
+        // Update the active tab record URL so the task context stays current
+        task.context.currentUrl = url;
+        // Brief wait for tab load to start
+        await new Promise(r => setTimeout(r, 200));
+      });
 
       this.currentTraceSteps = [];
 
@@ -296,6 +330,8 @@ export class AgentService {
             this.lastTaskTrace.task.completedAt = new Date().toISOString();
           }
         }
+        // Notify UI of final state
+        this.mainWindow.webContents.send('agent:state-changed', result.state);
         this.mainWindow.webContents.send('agent:developer-stats-updated', this.currentDeveloperStats);
 
         if (result.actionLog) {
@@ -306,22 +342,27 @@ export class AgentService {
         }
         return { success: result.state === TaskState.COMPLETED, result };
       } catch (err: any) {
+        this.mainWindow.webContents.send('agent:state-changed', TaskState.FAILED);
         return { success: false, error: err.message };
       }
     });
 
+
     ipcMain.handle('agent:pause', () => {
       this.reactLoop?.pause();
+      this.mainWindow.webContents.send('agent:state-changed', TaskState.PAUSED);
       return true;
     });
 
     ipcMain.handle('agent:resume', () => {
       this.reactLoop?.resume();
+      this.mainWindow.webContents.send('agent:state-changed', TaskState.EXECUTING);
       return true;
     });
 
     ipcMain.handle('agent:stop', () => {
       this.reactLoop?.stop();
+      this.mainWindow.webContents.send('agent:state-changed', TaskState.IDLE);
       return true;
     });
 
@@ -432,6 +473,51 @@ export class AgentService {
       if (format === 'md') return TraceExporter.exportToMarkdown(trace);
       if (format === 'csv') return TraceExporter.exportToCsv(trace);
       return TraceExporter.exportToJson(trace);
+    });
+
+    // ── Trust Dashboard IPC ───────────────────────────────────────────────
+    ipcMain.handle('trust:get-all', () => {
+      return this.trustManager.getAllTrustEntries();
+    });
+
+    ipcMain.handle('trust:set-level', (_, domain: string, level: string) => {
+      const { SiteTrustLevel } = require('../../shared/types');
+      this.trustManager.setTrustLevel(domain, level as any);
+      return true;
+    });
+
+    ipcMain.handle('trust:get-defaults', () => {
+      return this.trustManager.HIGHLY_RESTRICTED_DEFAULTS;
+    });
+
+    // ── Model Router Config IPC ───────────────────────────────────────────
+    ipcMain.handle('agent:get-model-config', () => {
+      return {
+        localModel: 'llama3.1:8b',
+        cloudModel: 'gpt-4o',
+        routingMode: 'auto',
+      };
+    });
+
+    ipcMain.handle('agent:set-model-config', (_, config: { localModel: string; cloudModel: string; routingMode: string }) => {
+      this.modelRouter.updateConfig({
+        localModel: config.localModel,
+        cloudModel: config.cloudModel,
+        routingMode: config.routingMode as any,
+      });
+      return true;
+    });
+
+    ipcMain.handle('agent:list-ollama-models', async () => {
+      const { OllamaAdapter } = require('./adapters/ollama-adapter');
+      const ollama = new OllamaAdapter();
+      return await ollama.listAvailableModels();
+    });
+
+    ipcMain.handle('agent:check-ollama', async () => {
+      const { OllamaAdapter } = require('./adapters/ollama-adapter');
+      const ollama = new OllamaAdapter();
+      return await ollama.isAvailable();
     });
   }
 }
