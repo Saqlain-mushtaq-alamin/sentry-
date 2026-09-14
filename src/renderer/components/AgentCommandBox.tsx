@@ -3,6 +3,12 @@ import { TaskState } from '../../shared/types';
 import { VoiceControls } from './VoiceControls';
 import './AgentCommandBox.css';
 
+export interface AgentResultData {
+  instruction: string;
+  summary: string;
+  timestamp: number;
+}
+
 interface AgentCommandBoxProps {
   onSendTask: (instruction: string) => void;
   onPause: () => void;
@@ -12,6 +18,8 @@ interface AgentCommandBoxProps {
   currentStep?: number;
   totalSteps?: number;
   lastMessage?: string;
+  lastResult?: AgentResultData | null;
+  onClearResult?: () => void;
   onSaveRecipe?: (instruction: string) => void;
   lastInstruction?: string;
   onExpandedChange?: (expanded: boolean) => void;
@@ -39,11 +47,31 @@ const STATE_COLORS: Record<TaskState, string> = {
 
 export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
   onSendTask, onPause, onStop, onResume, onSaveRecipe, onExpandedChange,
-  taskState, currentStep, totalSteps, lastMessage, lastInstruction
+  taskState, currentStep, totalSteps, lastMessage, lastResult, onClearResult, lastInstruction
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleCopyResult = () => {
+    if (!lastResult?.summary) return;
+    navigator.clipboard.writeText(lastResult.summary);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleToggleSpeak = () => {
+    if (!lastResult?.summary) return;
+    if (isSpeaking) {
+      window.sentry?.agent?.stopSpeech?.();
+      setIsSpeaking(false);
+    } else {
+      window.sentry?.agent?.speak?.(lastResult.summary);
+      setIsSpeaking(true);
+    }
+  };
 
   const isActive = [TaskState.PLANNING, TaskState.EXECUTING, TaskState.AWAITING_CONFIRMATION].includes(taskState);
   const isPaused = taskState === TaskState.PAUSED;
