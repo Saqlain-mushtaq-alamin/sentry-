@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TaskState, ActionLogEntry, TaskPlan } from '../../shared/types';
-import { AgentCommandBox } from './AgentCommandBox';
+import { AgentCommandBox, AgentResultData } from './AgentCommandBox';
 import { ActionLog } from '../overlays/ActionLog';
 import { TaskControls } from './TaskControls';
 import './AgentSidebar.css';
@@ -12,6 +12,8 @@ interface AgentSidebarProps {
   currentStep?: number;
   totalSteps?: number;
   lastMessage?: string;
+  lastResult?: AgentResultData | null;
+  onClearResult?: () => void;
   onSendTask: (instruction: string) => void;
   onPause: () => void;
   onStop: () => void;
@@ -28,6 +30,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   currentStep,
   totalSteps,
   lastMessage,
+  lastResult,
+  onClearResult,
   onSendTask,
   onPause,
   onStop,
@@ -38,6 +42,26 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(340);
+  const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleCopyResult = () => {
+    if (!lastResult?.summary) return;
+    navigator.clipboard.writeText(lastResult.summary);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleToggleSpeak = () => {
+    if (!lastResult?.summary) return;
+    if (isSpeaking) {
+      window.sentry?.agent?.stopSpeech?.();
+      setIsSpeaking(false);
+    } else {
+      window.sentry?.agent?.speak?.(lastResult.summary);
+      setIsSpeaking(true);
+    }
+  };
 
   if (collapsed) {
     return (
@@ -57,6 +81,33 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       </div>
 
       <div className="sidebar-scrollable-body">
+        {/* Latest Output Card */}
+        {lastResult && (
+          <div className="sidebar-result-card">
+            <div className="sidebar-result-header">
+              <div className="sidebar-result-title">
+                <span className="sidebar-result-badge">🤖 AI Output</span>
+              </div>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button className="sidebar-copy-btn" onClick={handleCopyResult}>
+                  {copied ? '✓ Copied' : '📋 Copy'}
+                </button>
+                <button className="sidebar-copy-btn" onClick={handleToggleSpeak}>
+                  {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
+                </button>
+                {onClearResult && (
+                  <button className="sidebar-copy-btn" onClick={onClearResult} title="Dismiss">
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="sidebar-result-query">"{lastResult.instruction}"</div>
+            <div className="sidebar-result-body">
+              {lastResult.summary}
+            </div>
+          </div>
+        )}
         {/* Controls */}
         <TaskControls
           taskState={taskState}
