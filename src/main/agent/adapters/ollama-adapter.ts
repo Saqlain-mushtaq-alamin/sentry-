@@ -30,7 +30,29 @@ export class OllamaAdapter implements ModelAdapter {
       const response = await fetch(`${this.baseUrl}/api/tags`);
       if (!response.ok) return false;
       const data = await response.json();
-      return data.models?.some((m: any) => m.name === this.modelId || m.name.startsWith(this.modelId)) || false;
+      const models = data.models || [];
+      if (models.length === 0) return false;
+
+      // Check if target model or tag exists
+      const hasTarget = models.some((m: any) =>
+        m.name === this.modelId ||
+        m.name.startsWith(this.modelId + ':') ||
+        (this.modelId.includes(':') && m.name.startsWith(this.modelId.split(':')[0]))
+      );
+      if (hasTarget) return true;
+
+      // If user's modelId is not exact, find the best available text model (avoid embed models)
+      const textModel = models.find((m: any) =>
+        !m.name.includes('embed') &&
+        (m.name.includes('llama') || m.name.includes('qwen') || m.name.includes('gemma') || m.name.includes('mistral'))
+      );
+      if (textModel) {
+        console.info(`[OllamaAdapter] Model "${this.modelId}" not found. Auto-switching to available model "${textModel.name}".`);
+        this.modelId = textModel.name;
+        return true;
+      }
+
+      return false;
     } catch {
       return false;
     }
