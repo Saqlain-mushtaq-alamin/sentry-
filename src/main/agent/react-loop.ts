@@ -22,7 +22,7 @@ import { TaskStateMachine } from './task-state-machine';
 import { InjectionDetector } from '../action-layer/injection-detector';
 
 const MAX_STEPS = 30;
-const MAX_PARSE_RETRIES = 2;
+const MAX_PARSE_RETRIES = 3;
 const LOOP_DETECTION_WINDOW = 3; // if same action proposed 3 times → stop
 
 export class ReActLoop {
@@ -38,6 +38,8 @@ export class ReActLoop {
   private stepTraceCallback?: (step: TraceStep, trace: TaskTrace) => void;
 
   private navigateCallback?: (tabId: string, url: string) => Promise<void>;
+  private goBackCallback?: (tabId: string) => Promise<void>;
+  private goForwardCallback?: (tabId: string) => Promise<void>;
 
   constructor(
     private adapter: ModelAdapter,
@@ -50,6 +52,14 @@ export class ReActLoop {
   /** Register a native navigation handler (for sentry:// tabs where CDP can't do window.location) */
   onNavigate(cb: (tabId: string, url: string) => Promise<void>): void {
     this.navigateCallback = cb;
+  }
+
+  onGoBack(cb: (tabId: string) => Promise<void>): void {
+    this.goBackCallback = cb;
+  }
+
+  onGoForward(cb: (tabId: string) => Promise<void>): void {
+    this.goForwardCallback = cb;
   }
 
   /** Register a callback for trace steps */
@@ -307,8 +317,25 @@ export class ReActLoop {
         const targetUrl = parsedAction.value || parsedAction.target;
         if (parsedAction.type === 'navigate' && this.navigateCallback && targetUrl) {
           let url = targetUrl.trim();
-          if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('sentry://')) {
-            url = 'https://' + url;
+          if (url.startsWith('/')) {
+            try {
+              const base = new URL(task.context.currentUrl);
+              url = new URL(url, base).href;
+            } catch {
+              url = 'https://' + url.replace(/^\/+/, '');
+            }
+          } else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('sentry://')) {
+            const isDomain = /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(url);
+            if (!isDomain && task.context.currentUrl && (task.context.currentUrl.startsWith('http://') || task.context.currentUrl.startsWith('https://'))) {
+              try {
+                const base = new URL(task.context.currentUrl);
+                url = new URL(url, base).href;
+              } catch {
+                url = 'https://' + url;
+              }
+            } else {
+              url = 'https://' + url;
+            }
           }
           await this.navigateCallback(task.tabId, url);
           // Update the task context URL so next observation uses the real page
@@ -316,6 +343,14 @@ export class ReActLoop {
           execResult = { success: true, duration: Date.now() - execStart };
           // Wait for page to begin loading
           await new Promise(r => setTimeout(r, 1500));
+        } else if (parsedAction.type === 'goBack' && this.goBackCallback) {
+          await this.goBackCallback(task.tabId);
+          execResult = { success: true, duration: Date.now() - execStart };
+          await new Promise(r => setTimeout(r, 1000));
+        } else if (parsedAction.type === 'goForward' && this.goForwardCallback) {
+          await this.goForwardCallback(task.tabId);
+          execResult = { success: true, duration: Date.now() - execStart };
+          await new Promise(r => setTimeout(r, 1000));
         } else {
           execResult = await this.executor.execute(task.tabId, actionRequest);
         }
