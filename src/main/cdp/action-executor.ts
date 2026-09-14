@@ -248,8 +248,11 @@ export class ActionExecutor {
 
   private async doNavigate(tabId: string, url?: string): Promise<boolean> {
     if (!url) throw new Error('Navigate requires a URL');
-    // Using CDP Page.navigate is safer, but Runtime eval is easier to just trigger
-    await this.doEval(tabId, `window.location.href = '${url}'`);
+    let targetUrl = url.trim();
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('sentry://')) {
+      targetUrl = 'https://' + targetUrl;
+    }
+    await this.doEval(tabId, `window.location.href = '${targetUrl.replace(/'/g, "\\'")}'`);
     return true;
   }
 
