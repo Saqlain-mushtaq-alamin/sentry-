@@ -3,6 +3,12 @@ import { TabItem } from '../../shared/types';
 import { StorageManager } from './storage-manager';
 import { NavigationManager } from './navigation-manager';
 
+export interface LayoutOffsets {
+  topOffset: number;
+  bottomOffset: number;
+  rightOffset: number;
+}
+
 export class TabManager {
   private window: BrowserWindow;
   private storage: StorageManager;
@@ -10,6 +16,13 @@ export class TabManager {
   private views: Map<string, WebContentsView> = new Map();
   private tabOrder: string[] = [];
   private activeTabId: string | null = null;
+  private tabHistory: Map<string, { entries: string[]; currentIndex: number }> = new Map();
+  private layoutOffsets: LayoutOffsets = {
+    topOffset: 82,
+    bottomOffset: 38, // Reserve space for the agent command bar dock
+    rightOffset: 0,
+  };
+  private isNavigatingHistory = false;
 
   constructor(window: BrowserWindow, storage: StorageManager) {
     this.window = window;
@@ -18,6 +31,11 @@ export class TabManager {
     this.window.on('resize', () => {
       this.updateActiveViewBounds();
     });
+  }
+
+  public setLayoutOffsets(offsets: Partial<LayoutOffsets>): void {
+    this.layoutOffsets = { ...this.layoutOffsets, ...offsets };
+    this.updateActiveViewBounds();
   }
 
   public getTabs(): TabItem[] {
@@ -59,6 +77,7 @@ export class TabManager {
       },
     });
 
+    this.tabHistory.set(id, { entries: [formattedUrl], currentIndex: 0 });
     this.setupViewEvents(id, view);
 
     this.tabs.set(id, tab);
@@ -89,6 +108,7 @@ export class TabManager {
 
     const index = this.tabOrder.indexOf(id);
     this.tabs.delete(id);
+    this.tabHistory.delete(id);
     this.tabOrder = this.tabOrder.filter((tId) => tId !== id);
 
     if (this.tabs.size === 0) {
@@ -128,10 +148,15 @@ export class TabManager {
     const activeView = this.views.get(id);
 
     if (activeTab && activeView && !activeTab.url.startsWith('sentry://')) {
-      this.window.contentView.addChildView(activeView);
+      try {
+        this.window.contentView.addChildView(activeView);
+      } catch {
+        // ignored
+      }
       this.updateActiveViewBounds();
     }
 
+    this.updateTabNavState(id);
     this.notifyTabsUpdated();
   }
 
@@ -154,7 +179,7 @@ export class TabManager {
     }
   }
 
-  public navigate(id: string, rawUrl: string): void {
+  public navigate(id: string, rawUrl: string, fromHistory = false): void {
     const tab = this.tabs.get(id);
     const view = this.views.get(id);
     if (!tab || !view) return;
@@ -162,6 +187,17 @@ export class TabManager {
     const settings = this.storage.getSettings();
     const url = NavigationManager.formatUrl(rawUrl, settings.searchEngine);
     tab.url = url;
+
+    if (!fromHistory) {
+      const hist = this.tabHistory.get(id);
+      if (hist) {
+        if (hist.entries[hist.currentIndex] !== url) {
+          hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
+          hist.entries.push(url);
+          hist.currentIndex = hist.entries.length - 1;
+        }
+      }
+    }
 
     if (url.startsWith('sentry://')) {
       try {
@@ -171,36 +207,85 @@ export class TabManager {
       }
       tab.title = this.getInternalTitle(url);
       tab.isLoading = false;
+      this.updateTabNavState(id);
       this.notifyTabsUpdated();
     } else {
       if (id === this.activeTabId) {
-        this.window.contentView.addChildView(view);
+        try {
+          this.window.contentView.addChildView(view);
+        } catch {
+          // ignored
+        }
         this.updateActiveViewBounds();
       }
       tab.isLoading = true;
+      this.updateTabNavState(id);
       this.notifyTabsUpdated();
       view.webContents.loadURL(url).catch((err) => console.error('Failed to navigate:', err));
     }
   }
 
   public goBack(id: string): void {
+    const tab = this.tabs.get(id);
     const view = this.views.get(id);
+    const hist = this.tabHistory.get(id);
+    if (!tab) return;
+
+    if (hist && hist.currentIndex > 0) {
+      this.isNavigatingHistory = true;
+      hist.currentIndex--;
+      const targetUrl = hist.entries[hist.currentIndex]!;
+      this.navigate(id, targetUrl, true);
+      this.isNavigatingHistory = false;
+      return;
+    }
+
     if (view && view.webContents.canGoBack()) {
       view.webContents.goBack();
+      this.updateTabNavState(id);
     }
   }
 
   public goForward(id: string): void {
+    const tab = this.tabs.get(id);
     const view = this.views.get(id);
+    const hist = this.tabHistory.get(id);
+    if (!tab) return;
+
+    if (hist && hist.currentIndex < hist.entries.length - 1) {
+      this.isNavigatingHistory = true;
+      hist.currentIndex++;
+      const targetUrl = hist.entries[hist.currentIndex]!;
+      this.navigate(id, targetUrl, true);
+      this.isNavigatingHistory = false;
+      return;
+    }
+
     if (view && view.webContents.canGoForward()) {
       view.webContents.goForward();
+      this.updateTabNavState(id);
     }
   }
 
   public reload(id: string): void {
     const view = this.views.get(id);
     const tab = this.tabs.get(id);
-    if (view && tab && !tab.url.startsWith('sentry://')) {
+    if (!tab) return;
+
+    if (tab.isLoading && view) {
+      view.webContents.stop();
+      tab.isLoading = false;
+      this.notifyTabsUpdated();
+      return;
+    }
+
+    if (tab.url.startsWith('sentry://')) {
+      if (!this.window.isDestroyed()) {
+        this.window.webContents.send('tabs:reload-internal', tab.url);
+      }
+      tab.isLoading = false;
+      this.notifyTabsUpdated();
+    } else if (view) {
       view.webContents.reload();
     }
   }
@@ -215,7 +300,7 @@ export class TabManager {
     }
   }
 
-  private updateActiveViewBounds(): void {
+  public updateActiveViewBounds(): void {
     if (!this.activeTabId) return;
     const activeTab = this.tabs.get(this.activeTabId);
     const activeView = this.views.get(this.activeTabId);
@@ -224,18 +309,106 @@ export class TabManager {
 
     const bounds = this.window.getContentBounds();
     const settings = this.storage.getSettings();
-    const topOffset = settings.showBookmarksBar ? 112 : 82;
+    const topOffset = settings.showBookmarksBar ? 112 : (this.layoutOffsets.topOffset || 82);
+    const bottomOffset = this.layoutOffsets.bottomOffset || 0;
+    const rightOffset = this.layoutOffsets.rightOffset || 0;
+
+    const targetWidth = Math.max(100, bounds.width - rightOffset);
+    const targetHeight = Math.max(100, bounds.height - topOffset - bottomOffset);
 
     activeView.setBounds({
       x: 0,
       y: topOffset,
-      width: bounds.width,
-      height: Math.max(100, bounds.height - topOffset),
+      width: targetWidth,
+      height: targetHeight,
     });
+  }
+
+  private updateTabNavState(tabId: string): void {
+    const tab = this.tabs.get(tabId);
+    const view = this.views.get(tabId);
+    const hist = this.tabHistory.get(tabId);
+    if (!tab) return;
+
+    const wc = view?.webContents;
+    const canGoBackHist = hist ? hist.currentIndex > 0 : false;
+    const canGoForwardHist = hist ? hist.currentIndex < hist.entries.length - 1 : false;
+
+    tab.canGoBack = canGoBackHist || (wc ? wc.canGoBack() : false);
+    tab.canGoForward = canGoForwardHist || (wc ? wc.canGoForward() : false);
   }
 
   private setupViewEvents(tabId: string, view: WebContentsView): void {
     const wc = view.webContents;
+
+    // Capture global keyboard shortcuts while focus is inside the web page
+    wc.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+
+      const isCtrl = process.platform === 'darwin' ? input.meta : input.control;
+
+      // Ctrl + Shift + Space: Toggle Agent Command Box
+      if (isCtrl && input.shift && (input.code === 'Space' || input.key === ' ' || input.key === 'Space')) {
+        event.preventDefault();
+        if (!this.window.isDestroyed()) {
+          this.window.webContents.send('agent:toggle-command-box');
+        }
+        return;
+      }
+
+      // Ctrl + Shift + P: Pause / Resume
+      if (isCtrl && input.shift && (input.key === 'P' || input.key === 'p')) {
+        event.preventDefault();
+        if (!this.window.isDestroyed()) {
+          this.window.webContents.send('agent:shortcut-pause-resume');
+        }
+        return;
+      }
+
+      // Ctrl + Shift + S: Stop
+      if (isCtrl && input.shift && (input.key === 'S' || input.key === 's')) {
+        event.preventDefault();
+        if (!this.window.isDestroyed()) {
+          this.window.webContents.send('agent:shortcut-stop');
+        }
+        return;
+      }
+
+      // Ctrl + T: New Tab
+      if (isCtrl && !input.shift && !input.alt && (input.key === 't' || input.key === 'T')) {
+        event.preventDefault();
+        this.createTab();
+        return;
+      }
+
+      // Ctrl + W: Close Tab
+      if (isCtrl && !input.shift && !input.alt && (input.key === 'w' || input.key === 'W')) {
+        event.preventDefault();
+        if (this.activeTabId) this.closeTab(this.activeTabId);
+        return;
+      }
+
+      // Ctrl + R or F5: Reload
+      if ((isCtrl && !input.shift && !input.alt && (input.key === 'r' || input.key === 'R')) || input.key === 'F5') {
+        event.preventDefault();
+        if (this.activeTabId) this.reload(this.activeTabId);
+        return;
+      }
+
+      // Alt + Left: Go Back
+      if (input.alt && input.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (this.activeTabId) this.goBack(this.activeTabId);
+        return;
+      }
+
+      // Alt + Right: Go Forward
+      if (input.alt && input.key === 'ArrowRight') {
+        event.preventDefault();
+        if (this.activeTabId) this.goForward(this.activeTabId);
+        return;
+      }
+    });
 
     wc.on('did-start-loading', () => {
       const tab = this.tabs.get(tabId);
@@ -249,8 +422,7 @@ export class TabManager {
       const tab = this.tabs.get(tabId);
       if (tab) {
         tab.isLoading = false;
-        tab.canGoBack = wc.canGoBack();
-        tab.canGoForward = wc.canGoForward();
+        this.updateTabNavState(tabId);
         this.notifyTabsUpdated();
       }
     });
@@ -276,8 +448,15 @@ export class TabManager {
       const tab = this.tabs.get(tabId);
       if (tab) {
         tab.url = url;
-        tab.canGoBack = wc.canGoBack();
-        tab.canGoForward = wc.canGoForward();
+        if (!this.isNavigatingHistory) {
+          const hist = this.tabHistory.get(tabId);
+          if (hist && hist.entries[hist.currentIndex] !== url) {
+            hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
+            hist.entries.push(url);
+            hist.currentIndex = hist.entries.length - 1;
+          }
+        }
+        this.updateTabNavState(tabId);
         this.storage.addHistoryEntry(url, tab.title, tab.favicon);
         this.notifyTabsUpdated();
       }
@@ -287,8 +466,15 @@ export class TabManager {
       const tab = this.tabs.get(tabId);
       if (tab) {
         tab.url = url;
-        tab.canGoBack = wc.canGoBack();
-        tab.canGoForward = wc.canGoForward();
+        if (!this.isNavigatingHistory) {
+          const hist = this.tabHistory.get(tabId);
+          if (hist && hist.entries[hist.currentIndex] !== url) {
+            hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
+            hist.entries.push(url);
+            hist.currentIndex = hist.entries.length - 1;
+          }
+        }
+        this.updateTabNavState(tabId);
         this.notifyTabsUpdated();
       }
     });
