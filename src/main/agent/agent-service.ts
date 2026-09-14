@@ -211,7 +211,7 @@ export class AgentService {
 
       const routingContext: RoutingContext = {
         task,
-        actionLog: this.actionHistory,
+        actionLog: [],
         pageContentLength: 5000,
       };
 
