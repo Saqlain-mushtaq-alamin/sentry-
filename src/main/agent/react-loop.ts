@@ -118,6 +118,7 @@ export class ReActLoop {
           snapshot = await this.observer.getPageSnapshot(task.tabId);
         }
       } catch (err) {
+        console.error('[ReActLoop] Failed to observe page:', err);
         return this.fail(`Failed to observe page: ${err}`, actionLog, stepCount);
       }
 
@@ -303,9 +304,10 @@ export class ReActLoop {
       try {
         // For 'navigate' actions, use the native TabManager navigation when available
         // (CDP's Runtime.evaluate window.location.href doesn't work on sentry:// internal pages)
-        if (parsedAction.type === 'navigate' && this.navigateCallback && parsedAction.value) {
-          let url = parsedAction.value;
-          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        const targetUrl = parsedAction.value || parsedAction.target;
+        if (parsedAction.type === 'navigate' && this.navigateCallback && targetUrl) {
+          let url = targetUrl.trim();
+          if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('sentry://')) {
             url = 'https://' + url;
           }
           await this.navigateCallback(task.tabId, url);
@@ -400,6 +402,7 @@ export class ReActLoop {
   }
 
   private fail(message: string, actionLog: ActionLogEntry[], totalSteps: number): TaskResult {
+    console.error(`[ReActLoop] Task failed: ${message}`);
     this.sm.transition(TaskState.FAILED);
     return { state: TaskState.FAILED, actionLog, totalSteps, error: message };
   }
