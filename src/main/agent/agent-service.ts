@@ -157,7 +157,9 @@ export class AgentService {
           if (!url.startsWith('http')) {
             url = 'https://' + (urlMatch[1] || url.replace(/^(?:go to|navigate to|open|visit)\s+/i, ''));
           }
-          action = { type: 'navigate', value: url, reason: `Navigating to ${url} as requested.` };
+          action = { type: 'navigate', target: url, value: url, reason: `Navigating to ${url} as requested.` };
+        } else if (step === 1 && combined.toLowerCase().includes('summar')) {
+          action = { type: 'done', reason: 'Summary: Page content processed. Real AI requires an API key or local Ollama.' };
         } else if (step === 1) {
           action = { type: 'scroll', direction: 'down', amount: 500, reason: 'Mock: scanning page content.' };
         } else {
@@ -340,8 +342,12 @@ export class AgentService {
             this.mainWindow.webContents.send('agent:action-logged', entry);
           });
         }
-        return { success: result.state === TaskState.COMPLETED, result };
+        if (result.state === TaskState.FAILED) {
+          console.error('[AgentService] Task ended with state FAILED:', result.error);
+        }
+        return { success: result.state === TaskState.COMPLETED, result, error: result.error };
       } catch (err: any) {
+        console.error('[AgentService] Task uncaught exception:', err);
         this.mainWindow.webContents.send('agent:state-changed', TaskState.FAILED);
         return { success: false, error: err.message };
       }

@@ -272,20 +272,27 @@ export default function App(): React.JSX.Element {
       const res = await window.sentry.agent.runTask(instruction);
       if (res.success) {
         setTaskState(TaskState.COMPLETED);
-        window.sentry.agent.speak?.('Task completed');
+        const summary = res.result?.summary;
+        if (summary) {
+          const spoken = summary.length > 120 ? `${summary.slice(0, 120)}...` : summary;
+          window.sentry.agent.speak?.(spoken);
+        } else {
+          window.sentry.agent.speak?.('Task completed');
+        }
         setNotifications((prev) => [
           ...prev,
           {
             id: `notif-done-${Date.now()}`,
             type: 'success',
             title: 'Task Completed',
-            message: `Completed task: "${instruction}"`,
+            message: summary || `Completed task: "${instruction}"`,
             timestamp: Date.now(),
             read: false,
           },
         ]);
       } else {
         setTaskState(TaskState.FAILED);
+        const errMessage = res.error || res.result?.error || 'Failed to complete agent task';
         window.sentry.agent.speak?.('Task failed');
         setNotifications((prev) => [
           ...prev,
@@ -293,7 +300,7 @@ export default function App(): React.JSX.Element {
             id: `notif-err-${Date.now()}`,
             type: 'error',
             title: 'Task Failed',
-            message: res.error || 'Failed to complete agent task',
+            message: errMessage,
             timestamp: Date.now(),
             read: false,
           },
