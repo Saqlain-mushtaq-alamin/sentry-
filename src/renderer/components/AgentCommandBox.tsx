@@ -14,6 +14,7 @@ interface AgentCommandBoxProps {
   lastMessage?: string;
   onSaveRecipe?: (instruction: string) => void;
   lastInstruction?: string;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const STATE_LABELS: Record<TaskState, string> = {
@@ -37,7 +38,7 @@ const STATE_COLORS: Record<TaskState, string> = {
 };
 
 export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
-  onSendTask, onPause, onStop, onResume, onSaveRecipe,
+  onSendTask, onPause, onStop, onResume, onSaveRecipe, onExpandedChange,
   taskState, currentStep, totalSteps, lastMessage, lastInstruction
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -48,25 +49,66 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
   const isPaused = taskState === TaskState.PAUSED;
   const isIdle   = taskState === TaskState.IDLE || taskState === TaskState.COMPLETED || taskState === TaskState.FAILED;
 
-  // Keyboard shortcuts
+  // Notify parent on expanded state change
+  useEffect(() => {
+    onExpandedChange?.(expanded);
+  }, [expanded, onExpandedChange]);
+
+  // IPC listener for shortcut toggle (from main process / WebContentsView)
+  useEffect(() => {
+    const unsubToggle = window.sentry?.agent?.onToggleCommandBox?.(() => {
+      setExpanded((prev) => {
+        const next = !prev;
+        if (next) {
+          setTimeout(() => inputRef.current?.focus(), 60);
+        }
+        return next;
+      });
+    });
+
+    const unsubPause = window.sentry?.agent?.onShortcutPauseResume?.(() => {
+      if (isActive) onPause();
+      else if (isPaused) onResume();
+    });
+
+    const unsubStop = window.sentry?.agent?.onShortcutStop?.(() => {
+      if (isActive || isPaused) onStop();
+    });
+
+    return () => {
+      if (unsubToggle) unsubToggle();
+      if (unsubPause) unsubPause();
+      if (unsubStop) unsubStop();
+    };
+  }, [isActive, isPaused, onPause, onResume, onStop]);
+
+  // Local window keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'Space') {
+      if (e.ctrlKey && e.shiftKey && (e.code === 'Space' || e.key === ' ' || e.key === 'Space')) {
         e.preventDefault();
-        setExpanded(true);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      } else if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        setExpanded((prev) => {
+          const next = !prev;
+          if (next) {
+            setTimeout(() => inputRef.current?.focus(), 60);
+          }
+          return next;
+        });
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
         e.preventDefault();
         if (isActive) onPause();
         else if (isPaused) onResume();
-      } else if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) {
         e.preventDefault();
         if (isActive || isPaused) onStop();
+      } else if (e.key === 'Escape' && expanded) {
+        e.preventDefault();
+        setExpanded(false);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isActive, isPaused, onPause, onResume, onStop]);
+  }, [isActive, isPaused, onPause, onResume, onStop, expanded]);
 
   const handleSend = () => {
     const text = input.trim();
@@ -94,21 +136,35 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
       {/* ── Status bar (always visible) ─────────────────────────────── */}
       <div 
         className="agent-statusbar" 
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => {
+          setExpanded((e) => {
+            const next = !e;
+            if (next) {
+              setTimeout(() => inputRef.current?.focus(), 60);
+            }
+            return next;
+          });
+        }}
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
         aria-label={`Agent Status: ${statusLabel}. Click to toggle panel.`}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpanded(!expanded); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            setExpanded(!expanded);
+          }
+        }}
       >
         <span className="agent-indicator" style={{ background: statusColor }} />
-        <span className="agent-status-label">{statusLabel}</span>
+        <span className="agent-status-label">
+          {statusLabel} — <span style={{ color: '#94a3b8', fontWeight: 400 }}>Press Ctrl+Shift+Space for AI agent</span>
+        </span>
         {isActive && currentStep !== undefined && (
           <span className="agent-step-counter" aria-live="polite">
             Step {currentStep}{totalSteps ? `/${totalSteps}` : ''}
           </span>
         )}
-        <span className="agent-toggle">{expanded ? '▼' : '▲'}</span>
+        <span className="agent-toggle">{expanded ? '▼ Close' : '▲ Open'}</span>
       </div>
 
       {/* ── Expanded panel ───────────────────────────────────────────── */}
@@ -140,7 +196,7 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
                 ref={inputRef}
                 className="agent-textarea"
                 rows={2}
-                placeholder="Ask Sentry to help… (Ctrl+Shift+Space)"
+                placeholder="Ask Sentry AI to do anything on this page… (Press Enter to run)"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -156,6 +212,7 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
                 onClick={handleSend} 
                 disabled={!input.trim()}
                 aria-label="Send Task to Agent"
+                title="Send instruction to AI agent"
               >
                 ↵
               </button>
