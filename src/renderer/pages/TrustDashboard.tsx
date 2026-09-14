@@ -6,20 +6,30 @@ import './TrustDashboard.css';
 export const TrustDashboard: React.FC = () => {
   const [entries, setEntries] = useState<SiteTrustEntry[]>([]);
   const [filter, setFilter] = useState('');
+  const [newDomain, setNewDomain] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const loadEntries = async () => {
+    const sentry = (window as any).sentry;
+    if (sentry?.trust?.getAll) {
+      const liveEntries = await sentry.trust.getAll();
+      setEntries(liveEntries || []);
+    } else {
+      // Fallback mock data when running outside Electron (browser dev mode)
+      setEntries([
+        { domain: 'chase.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
+        { domain: 'gmail.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
+        { domain: 'example.com', trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() },
+        { domain: 'malicious.com', trustLevel: SiteTrustLevel.BLOCKED, setBy: 'user', lastModified: Date.now() }
+      ]);
+    }
+  };
 
   useEffect(() => {
-    // In a real app, this would use an IPC call to the main process
-    // window.sentry.getTrustEntries().then(setEntries);
-    // For now, mock data
-    setEntries([
-      { domain: 'chase.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
-      { domain: 'gmail.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
-      { domain: 'example.com', trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() },
-      { domain: 'malicious.com', trustLevel: SiteTrustLevel.BLOCKED, setBy: 'user', lastModified: Date.now() }
-    ]);
+    loadEntries();
   }, []);
 
-  const handleTrustChange = (domain: string, newLevel: SiteTrustLevel) => {
+  const handleTrustChange = async (domain: string, newLevel: SiteTrustLevel) => {
     const entry = entries.find(e => e.domain === domain);
     if (!entry) return;
 
@@ -31,9 +41,29 @@ export const TrustDashboard: React.FC = () => {
       if (!confirm) return;
     }
 
+    const sentry = (window as any).sentry;
+    if (sentry?.trust?.setLevel) {
+      await sentry.trust.setLevel(domain, newLevel);
+    }
     setEntries(prev => prev.map(e => e.domain === domain ? { ...e, trustLevel: newLevel, setBy: 'user', lastModified: Date.now() } : e));
-    
-    // window.sentry.setTrustLevel(domain, newLevel);
+  };
+
+  const handleAddDomain = async () => {
+    const domain = newDomain.trim().toLowerCase().replace(/^https?:\/\//, '');
+    if (!domain) return;
+    const sentry = (window as any).sentry;
+    if (sentry?.trust?.setLevel) {
+      await sentry.trust.setLevel(domain, SiteTrustLevel.READ_ACT);
+    }
+    setEntries(prev => [...prev, { domain, trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() }]);
+    setNewDomain('');
+    setIsAdding(false);
+  };
+
+  const handleRemoveDomain = async (domain: string) => {
+    setEntries(prev => prev.filter(e => e.domain !== domain));
+    // Note: TrustManager doesn't have a delete API — removing from local state is the best we can do
+    // without adding a new IPC channel. Could also set to READ_ACT which is the default.
   };
 
   const getIconForLevel = (level: SiteTrustLevel) => {
@@ -60,7 +90,23 @@ export const TrustDashboard: React.FC = () => {
           onChange={e => setFilter(e.target.value)} 
           className="search-input"
         />
-        <button className="add-domain-btn">Add Domain</button>
+        {isAdding ? (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="example.com"
+              value={newDomain}
+              onChange={e => setNewDomain(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddDomain()}
+              className="search-input"
+              autoFocus
+            />
+            <button className="add-domain-btn" onClick={handleAddDomain}>Add</button>
+            <button className="delete-btn" onClick={() => { setIsAdding(false); setNewDomain(''); }}>Cancel</button>
+          </div>
+        ) : (
+          <button className="add-domain-btn" onClick={() => setIsAdding(true)}>+ Add Domain</button>
+        )}
       </div>
 
       <table className="trust-table">
@@ -91,10 +137,13 @@ export const TrustDashboard: React.FC = () => {
               <td>{entry.setBy === 'default' ? 'System Default' : 'User Configured'}</td>
               <td>{new Date(entry.lastModified).toLocaleDateString()}</td>
               <td>
-                <button className="delete-btn" onClick={() => setEntries(entries.filter(e => e.domain !== entry.domain))}>Remove</button>
+                <button className="delete-btn" onClick={() => handleRemoveDomain(entry.domain)}>Remove</button>
               </td>
             </tr>
           ))}
+          {filteredEntries.length === 0 && (
+            <tr><td colSpan={5} style={{ textAlign: 'center', color: '#6b7280', padding: '20px' }}>No domains configured. Add a domain above or visit websites to populate this list.</td></tr>
+          )}
         </tbody>
       </table>
 
@@ -102,3 +151,4 @@ export const TrustDashboard: React.FC = () => {
     </div>
   );
 };
+
