@@ -83,7 +83,7 @@ export class OllamaAdapter implements ModelAdapter {
       ...request.messages.map(m => ({ role: m.role, content: m.content }))
     ];
 
-    const body = {
+    const body: Record<string, unknown> = {
       model: this.modelId,
       messages: formattedMessages,
       stream: false,
@@ -91,6 +91,10 @@ export class OllamaAdapter implements ModelAdapter {
         temperature: request.temperature || 0.1,
       }
     };
+
+    if (request.responseFormat === 'json') {
+      body.format = 'json';
+    }
 
     const start = Date.now();
     const response = await fetch(`${this.baseUrl}/api/chat`, {
