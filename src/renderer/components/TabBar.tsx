@@ -39,7 +39,8 @@ export const TabBar: React.FC<TabBarProps> = ({
         gap: '4px',
         userSelect: 'none',
         overflowX: 'auto',
-      }}
+        WebkitAppRegion: 'drag',
+      } as React.CSSProperties}
       onClick={closeContextMenu}
     >
       {tabs.map((tab) => {
@@ -68,7 +69,8 @@ export const TabBar: React.FC<TabBarProps> = ({
               borderTop: isActive ? '2px solid #3b82f6' : '2px solid transparent',
               transition: 'all 0.15s ease',
               position: 'relative',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
           >
             {/* Favicon or fallback dot */}
             <div
@@ -113,7 +115,8 @@ export const TabBar: React.FC<TabBarProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '12px',
-                }}
+                  WebkitAppRegion: 'no-drag',
+                } as React.CSSProperties}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
               >
@@ -139,7 +142,8 @@ export const TabBar: React.FC<TabBarProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-        }}
+          WebkitAppRegion: 'no-drag',
+        } as React.CSSProperties}
         onMouseEnter={(e) => (e.currentTarget.style.background = '#1f2937')}
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
