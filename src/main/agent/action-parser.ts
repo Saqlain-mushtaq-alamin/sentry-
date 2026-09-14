@@ -9,10 +9,41 @@
 import { ParsedModelAction } from '../../shared/types';
 
 const VALID_ACTION_TYPES = new Set([
-  'click', 'type', 'scroll', 'navigate', 'select',
-  'goBack', 'goForward', 'reload', 'done', 'ask_user',
-  'hover', 'screenshot', 'waitFor',
+  'click', 'type', 'clear', 'select', 'scroll', 'hover',
+  'navigate', 'goBack', 'goForward', 'reload', 'waitFor',
+  'screenshot', 'done', 'ask_user',
 ]);
+
+const ACTION_TYPE_MAP: Record<string, string> = {
+  click: 'click',
+  type: 'type',
+  fill: 'type',
+  clear: 'clear',
+  select: 'select',
+  scroll: 'scroll',
+  hover: 'hover',
+  navigate: 'navigate',
+  goto: 'navigate',
+  open: 'navigate',
+  goback: 'goBack',
+  go_back: 'goBack',
+  back: 'goBack',
+  goforward: 'goForward',
+  go_forward: 'goForward',
+  forward: 'goForward',
+  reload: 'reload',
+  refresh: 'reload',
+  waitfor: 'waitFor',
+  wait_for: 'waitFor',
+  wait: 'waitFor',
+  screenshot: 'screenshot',
+  done: 'done',
+  finish: 'done',
+  complete: 'done',
+  ask_user: 'ask_user',
+  askuser: 'ask_user',
+  ask: 'ask_user',
+};
 
 export interface ParseSuccess {
   ok: true;
@@ -52,11 +83,14 @@ export class ActionParser {
       return { ok: false, error: 'Missing "action" field in model response', rawContent };
     }
 
-    const type = String(action['type'] ?? '').toLowerCase();
-    if (!VALID_ACTION_TYPES.has(type)) {
+    const rawActionType = String(action['type'] ?? '').trim();
+    const lookupKey = rawActionType.toLowerCase().replace(/[-\s]/g, '_');
+    const type = ACTION_TYPE_MAP[lookupKey] || ACTION_TYPE_MAP[lookupKey.replace(/_/g, '')];
+
+    if (!type || !VALID_ACTION_TYPES.has(type)) {
       return {
         ok: false,
-        error: `Unknown action type: "${type}". Must be one of: ${[...VALID_ACTION_TYPES].join(', ')}`,
+        error: `Unknown action type: "${rawActionType}". Must be one of: ${[...VALID_ACTION_TYPES].join(', ')}`,
         rawContent,
       };
     }
