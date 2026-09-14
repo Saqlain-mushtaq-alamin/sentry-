@@ -63,6 +63,20 @@ declare global {
         get: () => Promise<UserSettings>;
         update: (settings: Partial<UserSettings>) => Promise<UserSettings>;
       };
+
+
+      extensions: {
+        getAll: () => Promise<import('../shared/types').LoadedExtension[]>;
+        load: (path: string) => Promise<import('../shared/types').LoadedExtension>;
+        chooseAndLoad: () => Promise<import('../shared/types').LoadedExtension | null>;
+        unload: (id: string) => Promise<void>;
+        toggle: (id: string, enabled: boolean) => Promise<void>;
+      };
+      trust: {
+        getAll: () => Promise<import('../shared/types').SiteTrustEntry[]>;
+        setLevel: (domain: string, level: string) => Promise<boolean>;
+        getDefaults: () => Promise<string[]>;
+      };
       agent: {
         runTask: (instruction: string) => Promise<{ success: boolean; result?: unknown; error?: string }>;
         pause: () => Promise<boolean>;
@@ -84,6 +98,10 @@ declare global {
         getDeveloperStats: () => Promise<DeveloperSessionStats>;
         getLastTrace: () => Promise<TaskTrace | null>;
         resetDeveloperStats: () => Promise<boolean>;
+        getModelConfig: () => Promise<{ localModel: string; cloudModel: string; routingMode: string }>;
+        setModelConfig: (cfg: { localModel: string; cloudModel: string; routingMode: string }) => Promise<boolean>;
+        listOllamaModels: () => Promise<string[]>;
+        checkOllama: () => Promise<boolean>;
         onActionLogged: (callback: (entry: ActionLogEntry) => void) => () => void;
         onStateChanged: (callback: (state: TaskState) => void) => () => void;
         onInjectionDetected: (callback: (report: any) => void) => () => void;
@@ -91,18 +109,12 @@ declare global {
         onDeveloperStatsUpdated: (callback: (stats: DeveloperSessionStats) => void) => () => void;
         onStepTraceAdded: (callback: (step: TraceStep) => void) => () => void;
       };
-      extensions: {
-        getAll: () => Promise<import('../shared/types').LoadedExtension[]>;
-        load: (path: string) => Promise<import('../shared/types').LoadedExtension>;
-        chooseAndLoad: () => Promise<import('../shared/types').LoadedExtension | null>;
-        unload: (id: string) => Promise<void>;
-        toggle: (id: string, enabled: boolean) => Promise<void>;
-      };
       onTabsUpdated: (callback: (tabs: TabItem[]) => void) => () => void;
       onDownloadsUpdated: (callback: (downloads: DownloadItem[]) => void) => () => void;
     };
   }
 }
+
 
 export default function App(): React.JSX.Element {
   const [tabs, setTabs] = useState<TabItem[]>([]);
