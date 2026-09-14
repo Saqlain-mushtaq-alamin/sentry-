@@ -53,6 +53,11 @@ export class AnthropicAdapter implements ModelAdapter {
       body: JSON.stringify(body),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Anthropic API error (${response.status}): ${errText}`);
+    }
+
     const data = await response.json() as {
       content: Array<{ type: string; text: string }>;
       usage: { input_tokens: number; output_tokens: number };
