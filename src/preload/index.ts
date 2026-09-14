@@ -57,8 +57,30 @@ contextBridge.exposeInMainWorld('sentry', {
     update: (settings: Partial<UserSettings>) => ipcRenderer.invoke('settings:update', settings),
   },
 
+  // View Layout
+  view: {
+    setLayoutOffsets: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) =>
+      ipcRenderer.invoke('view:set-layout-offsets', offsets),
+  },
+
   // Agent IPC
   agent: {
+    onToggleCommandBox: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('agent:toggle-command-box', handler);
+      return () => ipcRenderer.removeListener('agent:toggle-command-box', handler);
+    },
+    onShortcutPauseResume: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('agent:shortcut-pause-resume', handler);
+      return () => ipcRenderer.removeListener('agent:shortcut-pause-resume', handler);
+    },
+    onShortcutStop: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('agent:shortcut-stop', handler);
+      return () => ipcRenderer.removeListener('agent:shortcut-stop', handler);
+    },
+
     runTask: (instruction: string) => ipcRenderer.invoke('agent:run-task', instruction),
     pause: () => ipcRenderer.invoke('agent:pause'),
     resume: () => ipcRenderer.invoke('agent:resume'),
@@ -141,5 +163,11 @@ contextBridge.exposeInMainWorld('sentry', {
     ipcRenderer.on('downloads:updated', handler);
     return () => ipcRenderer.removeListener('downloads:updated', handler);
   },
+  onInternalPageReload: (callback: (url: string) => void) => {
+    const handler = (_evt: unknown, url: string) => callback(url);
+    ipcRenderer.on('tabs:reload-internal', handler);
+    return () => ipcRenderer.removeListener('tabs:reload-internal', handler);
+  },
 });
+
 
