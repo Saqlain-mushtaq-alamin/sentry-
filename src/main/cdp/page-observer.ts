@@ -65,17 +65,19 @@ export class PageObserver {
       this.cdp.send<{ root: CdpDomNode }>(tabId, 'DOM.getDocument', { depth: -1, pierce: true }),
       this.cdp.send<{ nodes: CdpAXNode[] }>(tabId, 'Accessibility.getFullAXTree'),
       this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
-        expression: 'JSON.stringify({ url: location.href, title: document.title })',
+        expression: 'JSON.stringify({ url: location.href, title: document.title, innerText: (document.body ? document.body.innerText.slice(0, 30000) : "") })',
         returnByValue: true,
       }),
     ]);
 
     let url = '';
     let title = '';
+    let bodyInnerText = '';
     try {
       const meta = JSON.parse(metaResult?.result?.value ?? '{}');
       url = meta.url ?? '';
       title = meta.title ?? '';
+      bodyInnerText = (meta.innerText ?? '').trim();
     } catch {
       // ignore parse errors
     }
@@ -88,7 +90,8 @@ export class PageObserver {
       : { tag: 'body', children: [] };
 
     const accessibilityTree = this.convertAXNodes(axResult?.nodes ?? []);
-    const visibleText = this.extractVisibleText(simplifiedDom);
+    const domText = this.extractVisibleText(simplifiedDom);
+    const visibleText = bodyInnerText && bodyInnerText.length > domText.length ? bodyInnerText : (domText || bodyInnerText);
     const forms = this.extractForms(simplifiedDom);
     const links = this.extractLinks(simplifiedDom);
 
