@@ -28,4 +28,11 @@ describe('NavigationManager URL formatting & Search query handling', () => {
   it('should return sentry://newtab for empty inputs', () => {
     expect(NavigationManager.formatUrl('')).toBe('sentry://newtab');
   });
+
+  it('should preserve internal sentry:// protocols', () => {
+    expect(NavigationManager.formatUrl('sentry://history')).toBe('sentry://history');
+    expect(NavigationManager.formatUrl('sentry://settings')).toBe('sentry://settings');
+    expect(NavigationManager.formatUrl('sentry://bookmarks')).toBe('sentry://bookmarks');
+  });
 });
+
