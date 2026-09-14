@@ -185,7 +185,18 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
       >
         <span className="agent-indicator" style={{ background: statusColor }} />
         <span className="agent-status-label">
-          {statusLabel} — <span style={{ color: '#94a3b8', fontWeight: 400 }}>Press Ctrl+Shift+Space for AI agent</span>
+          {lastResult ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+              <span style={{ color: '#34d399', fontWeight: 600 }}>✓ AI Output:</span>
+              <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {lastResult.summary}
+              </span>
+            </span>
+          ) : (
+            <>
+              {statusLabel} — <span style={{ color: '#94a3b8', fontWeight: 400 }}>Press Ctrl+Shift+Space for AI agent</span>
+            </>
+          )}
         </span>
         {isActive && currentStep !== undefined && (
           <span className="agent-step-counter" aria-live="polite">
@@ -198,6 +209,48 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
       {/* ── Expanded panel ───────────────────────────────────────────── */}
       {expanded && (
         <div className="agent-panel">
+          {/* Output / Result Card */}
+          {lastResult && (
+            <div className="agent-result-card">
+              <div className="agent-result-header">
+                <div className="agent-result-title">
+                  <span className="agent-result-badge">🤖 AI Response</span>
+                  <span className="agent-result-query" title={lastResult.instruction}>
+                    "{lastResult.instruction}"
+                  </span>
+                </div>
+                <div className="agent-result-actions">
+                  <button 
+                    className="agent-action-pill"
+                    onClick={handleCopyResult}
+                    title="Copy result to clipboard"
+                  >
+                    {copied ? '✓ Copied' : '📋 Copy'}
+                  </button>
+                  <button 
+                    className="agent-action-pill"
+                    onClick={handleToggleSpeak}
+                    title={isSpeaking ? 'Stop speaking' : 'Read aloud'}
+                  >
+                    {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
+                  </button>
+                  {onClearResult && (
+                    <button 
+                      className="agent-action-pill close"
+                      onClick={onClearResult}
+                      title="Clear output"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="agent-result-body">
+                {lastResult.summary}
+              </div>
+            </div>
+          )}
+
           {lastMessage && (
             <div className="agent-message" aria-live="polite">{lastMessage}</div>
           )}
