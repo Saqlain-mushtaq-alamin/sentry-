@@ -41,8 +41,10 @@ export function buildSystemPrompt(context: AgentContext): string {
 }
 
 ## Important
+- When the user asks to summarize, explain, or answer questions about the current page, READ the provided Visible Page Text and return action type "done" immediately with your comprehensive answer or summary in the "reason" field. Do NOT navigate away or click links if the current page already contains the topic.
+- For "done" actions, put your final answer, summary, or report directly in the "reason" field.
 - "target" for click/type/select: use the integer index of the element from the interactive elements list.
-- "target" for navigate: use the URL string.
+- "target" for navigate: use the URL string (prefer full URLs or absolute paths).
 - "value" for scroll: use "up", "down", "left", or "right".
 - Do NOT wrap JSON in markdown code fences.
 
