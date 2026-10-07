@@ -61,6 +61,9 @@ contextBridge.exposeInMainWorld('sentry', {
   view: {
     setLayoutOffsets: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) =>
       ipcRenderer.invoke('view:set-layout-offsets', offsets),
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }) =>
+      ipcRenderer.invoke('view:set-bounds', bounds),
+    setHidden: (hidden: boolean) => ipcRenderer.invoke('view:set-hidden', hidden),
   },
 
   // Agent IPC
