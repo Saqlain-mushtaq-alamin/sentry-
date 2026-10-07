@@ -37,6 +37,11 @@ export class ModelRouter {
     this.localAdapter.modelId = config.localModel || 'llama3.1:8b';
   }
 
+  public setCloudAdapter(adapter: ModelAdapter) {
+    this.cloudAdapter = adapter;
+  }
+
+
   public async route(context: RoutingContext): Promise<RoutingDecision> {
     const isLocalAvailable = await this.localAdapter.isAvailable();
     const hasRealCloud = this.cloudAdapter.providerId !== 'mock';
