@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { TabItem, BookmarkItem, HistoryItem, DownloadItem, UserSettings } from '../shared/types';
 import { TabBar } from './components/TabBar';
 import { AddressBar } from './components/AddressBar';
@@ -13,9 +13,7 @@ import { ModelSettings } from './pages/ModelSettings';
 import { RecipeManager } from './pages/RecipeManager';
 import { DeveloperModePage } from './pages/DeveloperMode';
 import { ExtensionManagerPage } from './pages/ExtensionManager';
-import { AgentCommandBox } from './components/AgentCommandBox';
-import { AgentSidebar } from './components/AgentSidebar';
-import { NotificationCenter } from './components/NotificationCenter';
+import { AgentSidebar, AgentResultData } from './components/AgentSidebar';
 import { AgentVision } from './overlays/AgentVision';
 import { InjectionAlert } from './overlays/InjectionAlert';
 import { MultiTabDashboard } from './overlays/MultiTabDashboard';
@@ -64,9 +62,10 @@ declare global {
         update: (settings: Partial<UserSettings>) => Promise<UserSettings>;
       };
       view: {
-        setLayoutOffsets: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) => Promise<void>;
+        setLayoutOffsets?: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) => Promise<void>;
+        setBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
+        setHidden?: (hidden: boolean) => Promise<void>;
       };
-
       extensions: {
         getAll: () => Promise<import('../shared/types').LoadedExtension[]>;
         load: (path: string) => Promise<import('../shared/types').LoadedExtension>;
@@ -121,13 +120,13 @@ declare global {
   }
 }
 
-
 export default function App(): React.JSX.Element {
   const [tabs, setTabs] = useState<TabItem[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
 
   // Agent UX State
   const [taskState, setTaskState] = useState<TaskState>(TaskState.IDLE);
@@ -144,21 +143,41 @@ export default function App(): React.JSX.Element {
   ]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
-  const [activeSnapshot, setActiveSnapshot] = useState<PageSnapshot | undefined>(undefined);
+  const [activeSnapshot] = useState<PageSnapshot | undefined>(undefined);
   const [injectionReport, setInjectionReport] = useState<any>(null);
   const [routingDecision, setRoutingDecision] = useState<any>(null);
   const [lastInstruction, setLastInstruction] = useState<string>('');
   const [multiTabTask, setMultiTabTask] = useState<MultiTabTask | null>(null);
-  const [isAgentBoxExpanded, setIsAgentBoxExpanded] = useState(false);
-  const [lastAgentResult, setLastAgentResult] = useState<import('./components/AgentCommandBox').AgentResultData | null>(null);
+  const [lastAgentResult, setLastAgentResult] = useState<AgentResultData | null>(null);
+  const [focusTrigger, setFocusTrigger] = useState(0);
 
-  // Sync WebContentsView layout offsets (bottom dock for Agent Command Box and right sidebar)
-  useEffect(() => {
-    if (!window.sentry?.view?.setLayoutOffsets) return;
-    const bottomOffset = isAgentBoxExpanded ? (lastAgentResult ? 300 : 210) : 38;
-    const rightOffset = isSidebarOpen ? 340 : 0;
-    window.sentry.view.setLayoutOffsets({ bottomOffset, rightOffset });
-  }, [isAgentBoxExpanded, isSidebarOpen, lastAgentResult]);
+  // Step 2: Content measurement with ResizeObserver (no hardcoded offsets!)
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const send = () => {
+      const r = el.getBoundingClientRect();
+      window.sentry?.view?.setBounds?.({
+        x: Math.round(r.left),
+        y: Math.round(r.top),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      });
+    };
+
+    const ro = new ResizeObserver(send);
+    ro.observe(el);
+    window.addEventListener('resize', send);
+    send();
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', send);
+    };
+  }, []);
 
   // Load initial data
   const loadInitialData = useCallback(async () => {
@@ -177,56 +196,24 @@ export default function App(): React.JSX.Element {
 
       const dls: DownloadItem[] = await window.sentry.downloads.getAll();
       setDownloads(dls);
+
+      const s = await window.sentry.settings.get();
+      setSettings(s);
     } catch (err) {
       console.error('Failed to load initial data:', err);
     }
   }, []);
 
-  useEffect(() => {
-    loadInitialData();
-
-    if (window.sentry) {
-      const unsubTabs = window.sentry.onTabsUpdated((updatedTabs: TabItem[]) => {
-        setTabs(updatedTabs);
-        const active = updatedTabs.find((t) => t.isActive);
-        if (active) setActiveTabId(active.id);
-      });
-
-      const unsubDownloads = window.sentry.onDownloadsUpdated((updatedDownloads: DownloadItem[]) => {
-        setDownloads(updatedDownloads);
-      });
-
-      const unsubActionLog = window.sentry.agent?.onActionLogged((entry: ActionLogEntry) => {
-        setActionLog((prev) => [...prev, entry]);
-      });
-
-      const unsubState = window.sentry.agent?.onStateChanged((state: TaskState) => {
-        setTaskState(state);
-      });
-
-      const unsubInjection = window.sentry.agent?.onInjectionDetected((report: any) => {
-        setInjectionReport(report);
-      });
-
-      const unsubRouting = window.sentry.agent?.onRoutingDecision((decision: any) => {
-        setRoutingDecision(decision);
-      });
-
-      const unsubReload = window.sentry.onInternalPageReload?.(() => {
-        loadInitialData();
-      });
-
-      return () => {
-        unsubTabs();
-        unsubDownloads();
-        if (unsubActionLog) unsubActionLog();
-        if (unsubState) unsubState();
-        if (unsubInjection) unsubInjection();
-        if (unsubRouting) unsubRouting();
-        if (unsubReload) unsubReload();
-      };
-    }
-  }, [loadInitialData]);
+  // Toggle & focus agent sidebar
+  const toggleAndFocusAgent = useCallback(() => {
+    setIsSidebarOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setFocusTrigger((f) => f + 1);
+      }
+      return next;
+    });
+  }, []);
 
   // Agent Operations
   const handleSendTask = async (instruction: string) => {
@@ -280,7 +267,6 @@ export default function App(): React.JSX.Element {
             summary,
             timestamp: Date.now(),
           });
-          setIsAgentBoxExpanded(true);
           const spoken = summary.length > 120 ? `${summary.slice(0, 120)}...` : summary;
           window.sentry.agent.speak?.(spoken);
         } else {
@@ -334,9 +320,29 @@ export default function App(): React.JSX.Element {
   const handleSaveRecipe = async (instruction: string) => {
     try {
       await window.sentry?.agent?.saveRecipe(instruction);
-      alert('Recipe saved! View it in the Recipes dashboard.');
-    } catch (e) {
-      alert('Failed to save recipe.');
+      setNotifications((prev) => [
+        ...prev,
+        {
+          id: `recipe-saved-${Date.now()}`,
+          type: 'success',
+          title: 'Recipe Saved',
+          message: 'Saved to your recipes. Access via the menu.',
+          timestamp: Date.now(),
+          read: false,
+        },
+      ]);
+    } catch {
+      setNotifications((prev) => [
+        ...prev,
+        {
+          id: `recipe-err-${Date.now()}`,
+          type: 'error',
+          title: 'Save Failed',
+          message: 'Failed to save recipe.',
+          timestamp: Date.now(),
+          read: false,
+        },
+      ]);
     }
   };
 
@@ -436,6 +442,17 @@ export default function App(): React.JSX.Element {
     if (window.sentry) {
       await window.sentry.history.clear();
       setHistory([]);
+      setNotifications((prev) => [
+        ...prev,
+        {
+          id: `hist-clear-${Date.now()}`,
+          type: 'info',
+          title: 'History Cleared',
+          message: 'All browsing history entries removed.',
+          timestamp: Date.now(),
+          read: false,
+        },
+      ]);
     }
   };
 
@@ -446,9 +463,81 @@ export default function App(): React.JSX.Element {
     }
   };
 
-  // Keyboard Shortcuts (Task 2.10)
+  useEffect(() => {
+    loadInitialData();
+
+    if (window.sentry) {
+      const unsubTabs = window.sentry.onTabsUpdated((updatedTabs: TabItem[]) => {
+        setTabs(updatedTabs);
+        const active = updatedTabs.find((t) => t.isActive);
+        if (active) setActiveTabId(active.id);
+      });
+
+      const unsubDownloads = window.sentry.onDownloadsUpdated((updatedDownloads: DownloadItem[]) => {
+        setDownloads(updatedDownloads);
+      });
+
+      const unsubActionLog = window.sentry.agent?.onActionLogged((entry: ActionLogEntry) => {
+        setActionLog((prev) => [...prev, entry]);
+      });
+
+      const unsubState = window.sentry.agent?.onStateChanged((state: TaskState) => {
+        setTaskState(state);
+      });
+
+      const unsubInjection = window.sentry.agent?.onInjectionDetected((report: any) => {
+        setInjectionReport(report);
+      });
+
+      const unsubRouting = window.sentry.agent?.onRoutingDecision((decision: any) => {
+        setRoutingDecision(decision);
+      });
+
+      const unsubReload = window.sentry.onInternalPageReload?.(() => {
+        loadInitialData();
+      });
+
+      const unsubToggle = window.sentry.agent?.onToggleCommandBox?.(() => {
+        toggleAndFocusAgent();
+      });
+
+      const unsubPause = window.sentry.agent?.onShortcutPauseResume?.(() => {
+        if ([TaskState.PLANNING, TaskState.EXECUTING, TaskState.AWAITING_CONFIRMATION].includes(taskState)) {
+          handlePause();
+        } else if (taskState === TaskState.PAUSED) {
+          handleResume();
+        }
+      });
+
+      const unsubStop = window.sentry.agent?.onShortcutStop?.(() => {
+        handleStop();
+      });
+
+      return () => {
+        unsubTabs();
+        unsubDownloads();
+        if (unsubActionLog) unsubActionLog();
+        if (unsubState) unsubState();
+        if (unsubInjection) unsubInjection();
+        if (unsubRouting) unsubRouting();
+        if (unsubReload) unsubReload();
+        if (unsubToggle) unsubToggle();
+        if (unsubPause) unsubPause();
+        if (unsubStop) unsubStop();
+      };
+    }
+  }, [loadInitialData, taskState, toggleAndFocusAgent]);
+
+  // Keyboard Shortcuts (single unified registry)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Shift+Space: Toggle Agent sidebar & focus
+      if (e.ctrlKey && e.shiftKey && (e.code === 'Space' || e.key === ' ' || e.key === 'Space')) {
+        e.preventDefault();
+        toggleAndFocusAgent();
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case 't':
@@ -497,27 +586,42 @@ export default function App(): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, activeTab, tabs, handleNavigate, handleReload, handleToggleBookmark]);
+  }, [activeTabId, activeTab, tabs, handleNavigate, handleReload, handleToggleBookmark, toggleAndFocusAgent]);
 
   // Window Controls
   const handleMinimize = () => window.sentry?.window.minimize();
   const handleMaximize = () => window.sentry?.window.maximize();
   const handleCloseWindow = () => window.sentry?.window.close();
 
+  // Bookmarks bar displays only if enabled AND has items
+  const showBookmarksBar = (settings?.showBookmarksBar ?? true) && bookmarks.length > 0;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: '#0f172a' }}>
-      {/* Titlebar & Tab Strip */}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        background: 'var(--bg-0)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Titlebar + Tab Strip ───────────────────────────────── */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          background: '#0d1117',
+          background: 'var(--bg-0)',
           WebkitAppRegion: 'drag',
           userSelect: 'none',
+          height: '38px',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
         } as React.CSSProperties}
         onDoubleClick={handleMaximize}
       >
-        <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'drag', flexGrow: 1, minWidth: 0, overflow: 'hidden' } as React.CSSProperties}>
           <TabBar
             tabs={tabs}
             activeTabId={activeTabId}
@@ -529,75 +633,90 @@ export default function App(): React.JSX.Element {
           />
         </div>
 
-        {/* Draggable Titlebar Spacer: allows dragging window anywhere across the screen */}
+        {/* Draggable Titlebar Spacer */}
         <div
           style={{
             flexGrow: 1,
-            height: '40px',
+            height: '100%',
             WebkitAppRegion: 'drag',
             cursor: 'default',
           } as React.CSSProperties}
           onDoubleClick={handleMaximize}
         />
 
-        {/* Notification Bell & Companion Sidebar Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag', paddingRight: '8px' } as React.CSSProperties}>
-          <NotificationCenter
-            notifications={notifications}
-            onDismiss={handleDismissNotification}
-            onClearAll={() => setNotifications([])}
-            onActionClick={(notifId, actionId) => {
-              console.log(`Action ${actionId} clicked on notification ${notifId}`);
-              if (actionId === 'dismiss') {
-                handleDismissNotification(notifId);
-              }
-            }}
-          />
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            title="Toggle Agent Sidebar Companion"
-            style={{
-              background: isSidebarOpen ? '#cba6f7' : '#1e1e2e',
-              color: isSidebarOpen ? '#11111b' : '#cba6f7',
-              border: '1px solid #cba6f7',
-              borderRadius: '6px',
-              padding: '3px 8px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-            }}
-          >
-            🤖 Sidebar
-          </button>
+        {/* Window Controls Only (titlebar kept clean) */}
+        <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={handleMinimize}
-            style={{ border: 'none', background: 'transparent', color: '#9ca3af', padding: '6px 10px', cursor: 'pointer' }}
+            title="Minimize"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-2)',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'background 0.12s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             ─
           </button>
           <button
             onClick={handleMaximize}
-            style={{ border: 'none', background: 'transparent', color: '#9ca3af', padding: '6px 10px', cursor: 'pointer' }}
+            title="Maximize"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-2)',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'background 0.12s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             □
           </button>
           <button
             onClick={handleCloseWindow}
-            style={{ border: 'none', background: 'transparent', color: '#9ca3af', padding: '6px 10px', cursor: 'pointer' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+            title="Close"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-2)',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'background 0.12s ease, color 0.12s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--danger)';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text-2)';
+            }}
           >
             ✕
           </button>
         </div>
       </div>
 
-      {/* Address Bar */}
+      {/* ── Toolbar (Address Bar) ──────────────────────────────── */}
       <AddressBar
         activeTab={activeTab}
         bookmarks={bookmarks}
         history={history}
         routingDecision={routingDecision}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={toggleAndFocusAgent}
+        notifications={notifications}
+        onDismissNotification={handleDismissNotification}
+        onClearNotifications={() => setNotifications([])}
         onNavigate={handleNavigate}
         onGoBack={handleGoBack}
         onGoForward={handleGoForward}
@@ -606,122 +725,125 @@ export default function App(): React.JSX.Element {
         onOpenPage={(page) => handleNavigate(`sentry://${page}`)}
       />
 
-      {/* Bookmarks Bar */}
-      <BookmarksBar
-        bookmarks={bookmarks}
-        onNavigate={handleNavigate}
-        onRemoveBookmark={handleRemoveBookmark}
-      />
+      {/* ── Bookmarks Bar (only if enabled AND has items) ──────── */}
+      {showBookmarksBar && (
+        <BookmarksBar
+          bookmarks={bookmarks}
+          onNavigate={handleNavigate}
+          onRemoveBookmark={handleRemoveBookmark}
+        />
+      )}
 
-      {/* Main Content Area */}
-      <div style={{ flexGrow: 1, position: 'relative', overflow: 'auto' }}>
-        {activeTab?.url === 'sentry://newtab' && (
-          <NewTab history={history} onNavigate={handleNavigate} />
-        )}
-        {activeTab?.url === 'sentry://settings' && (
-          <Settings onClearHistory={handleClearHistory} />
-        )}
-        {activeTab?.url === 'sentry://history' && (
-          <History
-            history={history}
-            onNavigate={handleNavigate}
-            onClearHistory={handleClearHistory}
-            onRemoveEntry={handleRemoveHistoryEntry}
-          />
-        )}
-        {activeTab?.url === 'sentry://bookmarks' && (
-          <Bookmarks
-            bookmarks={bookmarks}
-            onNavigate={handleNavigate}
-            onRemoveBookmark={handleRemoveBookmark}
-          />
-        )}
-        {activeTab?.url === 'sentry://downloads' && (
-          <Downloads
-            downloads={downloads}
-            onOpenFile={(path) => window.sentry?.downloads.openFile(path)}
-            onOpenFolder={(path) => window.sentry?.downloads.openFolder(path)}
-          />
-        )}
-        {activeTab?.url === 'sentry://trust' && (
-          <TrustDashboard />
-        )}
-        {activeTab?.url === 'sentry://models' && (
-          <ModelSettings />
-        )}
-        {activeTab?.url === 'sentry://recipes' && (
-          <RecipeManager />
-        )}
-        {activeTab?.url === 'sentry://developer' && (
-          <DeveloperModePage />
-        )}
-        {activeTab?.url === 'sentry://extensions' && (
-          <ExtensionManagerPage />
-        )}
+      {/* ── Content & Docked Sidebar Row (Flex layout) ─────────── */}
+      <div style={{ display: 'flex', flexGrow: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+        {/* Measured Content Area (Native WebContentsView sits exactly here) */}
+        <div
+          ref={contentRef}
+          style={{
+            flexGrow: 1,
+            height: '100%',
+            position: 'relative',
+            overflow: 'auto',
+            background: 'var(--bg-0)',
+          }}
+        >
+          {activeTab?.url === 'sentry://newtab' && (
+            <NewTab history={history} onNavigate={handleNavigate} />
+          )}
+          {activeTab?.url === 'sentry://settings' && (
+            <Settings onClearHistory={handleClearHistory} />
+          )}
+          {activeTab?.url === 'sentry://history' && (
+            <History
+              history={history}
+              onNavigate={handleNavigate}
+              onClearHistory={handleClearHistory}
+              onRemoveEntry={handleRemoveHistoryEntry}
+            />
+          )}
+          {activeTab?.url === 'sentry://bookmarks' && (
+            <Bookmarks
+              bookmarks={bookmarks}
+              onNavigate={handleNavigate}
+              onRemoveBookmark={handleRemoveBookmark}
+            />
+          )}
+          {activeTab?.url === 'sentry://downloads' && (
+            <Downloads
+              downloads={downloads}
+              onOpenFile={(path) => window.sentry?.downloads.openFile(path)}
+              onOpenFolder={(path) => window.sentry?.downloads.openFolder(path)}
+            />
+          )}
+          {activeTab?.url === 'sentry://trust' && (
+            <TrustDashboard />
+          )}
+          {activeTab?.url === 'sentry://models' && (
+            <ModelSettings />
+          )}
+          {activeTab?.url === 'sentry://recipes' && (
+            <RecipeManager />
+          )}
+          {activeTab?.url === 'sentry://developer' && (
+            <DeveloperModePage />
+          )}
+          {activeTab?.url === 'sentry://extensions' && (
+            <ExtensionManagerPage />
+          )}
 
-        {/* Multi-Tab Dashboard Overlay */}
-        {multiTabTask && (
-          <MultiTabDashboard
-            task={multiTabTask}
-            onPauseAll={() => {
-              const updated = { ...multiTabTask };
-              updated.tabs.forEach(t => t.status = 'paused');
-              setMultiTabTask(updated);
-            }}
-            onStopAll={() => setMultiTabTask(null)}
-            onSwitchToTab={(tabId) => handleSwitchTab(tabId)}
-          />
-        )}
+          {/* Multi-Tab Dashboard Overlay */}
+          {multiTabTask && (
+            <MultiTabDashboard
+              task={multiTabTask}
+              onPauseAll={() => {
+                const updated = { ...multiTabTask };
+                updated.tabs.forEach((t) => (t.status = 'paused'));
+                setMultiTabTask(updated);
+              }}
+              onStopAll={() => setMultiTabTask(null)}
+              onSwitchToTab={(tabId) => handleSwitchTab(tabId)}
+            />
+          )}
 
-        {/* Agent Vision Mode Overlay */}
-        {isVisionActive && (
-          <AgentVision
-            snapshot={activeSnapshot}
-            onClose={() => setIsVisionActive(false)}
-          />
-        )}
+          {/* Agent Vision Mode Overlay */}
+          {isVisionActive && (
+            <AgentVision
+              snapshot={activeSnapshot}
+              onClose={() => setIsVisionActive(false)}
+            />
+          )}
 
-        {injectionReport && (
-          <InjectionAlert
-            report={injectionReport}
-            onDismiss={() => setInjectionReport(null)}
-            onReportFalsePositive={() => {
-              console.log('False positive reported:', injectionReport.detections[0].id);
-              setInjectionReport(null);
-            }}
-          />
-        )}
+          {/* Injection Alert Modal */}
+          {injectionReport && (
+            <InjectionAlert
+              report={injectionReport}
+              onDismiss={() => setInjectionReport(null)}
+              onReportFalsePositive={() => {
+                setInjectionReport(null);
+              }}
+            />
+          )}
+        </div>
 
-        {/* Agent Companion Sidebar */}
+        {/* Docked Agent Sidebar (Normal flex child, shrinks content automatically) */}
         {isSidebarOpen && (
           <AgentSidebar
             taskState={taskState}
             actionLog={actionLog}
             lastResult={lastAgentResult}
+            routingDecision={routingDecision}
+            lastInstruction={lastInstruction}
             onClearResult={() => setLastAgentResult(null)}
             onSendTask={handleSendTask}
             onPause={handlePause}
             onStop={handleStop}
             onResume={handleResume}
             onUndoLast={handleUndoLast}
-            onToggleVisionMode={() => setIsVisionActive(!isVisionActive)}
-            isVisionModeActive={isVisionActive}
+            onClose={() => setIsSidebarOpen(false)}
+            onSaveRecipe={handleSaveRecipe}
+            focusTrigger={focusTrigger}
           />
         )}
-
-        {/* Agent Command Box (Ctrl+Shift+Space) */}
-        <AgentCommandBox
-          onSendTask={handleSendTask}
-          onPause={handlePause}
-          onStop={handleStop}
-          onResume={handleResume}
-          taskState={taskState}
-          lastInstruction={lastInstruction}
-          lastResult={lastAgentResult}
-          onClearResult={() => setLastAgentResult(null)}
-          onSaveRecipe={handleSaveRecipe}
-          onExpandedChange={setIsAgentBoxExpanded}
-        />
       </div>
     </div>
   );
