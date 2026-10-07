@@ -117,7 +117,9 @@ export interface UserSettings {
   defaultDownloadPath: string;
   askDownloadPath: boolean;
   developerMode?: boolean;
+  voiceOutputEnabled?: boolean;
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 3 — Action Layer Types
