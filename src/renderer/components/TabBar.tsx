@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Plus, X, Pin } from 'lucide-react';
 import { TabItem } from '../../shared/types';
+import { useHideNativeView } from '../hooks/useHideNativeView';
 
 interface TabBarProps {
   tabs: TabItem[];
@@ -22,6 +24,9 @@ export const TabBar: React.FC<TabBarProps> = ({
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
 
+  // Automatically hide native WebContentsView when context menu is open
+  useHideNativeView(!!contextMenu);
+
   const handleContextMenu = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, tabId });
@@ -34,7 +39,7 @@ export const TabBar: React.FC<TabBarProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        background: '#0d1117',
+        background: 'var(--bg-0)',
         padding: '6px 8px 0 8px',
         gap: '4px',
         userSelect: 'none',
@@ -50,38 +55,46 @@ export const TabBar: React.FC<TabBarProps> = ({
             key={tab.id}
             onClick={() => onSwitchTab(tab.id)}
             onAuxClick={(e) => {
-              if (e.button === 1) onCloseTab(tab.id); // Middle click
+              if (e.button === 1) onCloseTab(tab.id); // Middle click to close
             }}
             onContextMenu={(e) => handleContextMenu(e, tab.id)}
+            title={tab.title || 'New Tab'}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '6px 12px',
-              maxWidth: tab.isPinned ? '42px' : '200px',
-              minWidth: tab.isPinned ? '42px' : '120px',
-              height: '34px',
-              borderRadius: '8px 8px 0 0',
-              background: isActive ? '#1f2937' : 'transparent',
-              color: isActive ? '#ffffff' : '#9ca3af',
-              fontSize: '13px',
+              gap: '6px',
+              padding: tab.isPinned ? '0 8px' : '0 10px',
+              maxWidth: tab.isPinned ? '38px' : '190px',
+              minWidth: tab.isPinned ? '38px' : '110px',
+              height: '32px',
+              borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
+              background: isActive ? 'var(--bg-1)' : 'transparent',
+              color: isActive ? 'var(--text)' : 'var(--text-2)',
+              fontSize: '12px',
               cursor: 'pointer',
-              borderTop: isActive ? '2px solid #3b82f6' : '2px solid transparent',
-              transition: 'all 0.15s ease',
+              borderTop: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+              borderLeft: isActive ? '1px solid var(--border)' : '1px solid transparent',
+              borderRight: isActive ? '1px solid var(--border)' : '1px solid transparent',
+              transition: 'background 0.12s ease, color 0.12s ease',
               position: 'relative',
               WebkitAppRegion: 'no-drag',
+              flexShrink: 0,
             } as React.CSSProperties}
           >
-            {/* Favicon or fallback dot */}
-            <div
-              style={{
-                width: '14px',
-                height: '14px',
-                borderRadius: '50%',
-                background: tab.isLoading ? '#3b82f6' : '#6b7280',
-                flexShrink: 0,
-              }}
-            />
+            {/* Status dot or pin icon */}
+            {tab.isPinned ? (
+              <Pin size={12} style={{ color: 'var(--text-2)', transform: 'rotate(45deg)' }} />
+            ) : (
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: tab.isLoading ? 'var(--accent)' : isActive ? 'var(--text)' : 'var(--text-3)',
+                  flexShrink: 0,
+                }}
+              />
+            )}
 
             {!tab.isPinned && (
               <span
@@ -90,7 +103,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   flexGrow: 1,
-                  fontWeight: isActive ? 600 : 400,
+                  fontWeight: isActive ? 500 : 400,
                 }}
               >
                 {tab.title || 'New Tab'}
@@ -99,6 +112,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {!tab.isPinned && (
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onCloseTab(tab.id);
@@ -106,21 +120,28 @@ export const TabBar: React.FC<TabBarProps> = ({
                 style={{
                   border: 'none',
                   background: 'transparent',
-                  color: '#9ca3af',
+                  color: 'var(--text-3)',
                   cursor: 'pointer',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  display: 'flex',
+                  borderRadius: 'var(--radius-sm)',
+                  width: '16px',
+                  height: '16px',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '12px',
+                  padding: 0,
                   WebkitAppRegion: 'no-drag',
+                  flexShrink: 0,
                 } as React.CSSProperties}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--danger)';
+                  e.currentTarget.style.background = 'var(--danger-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-3)';
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
-                ✕
+                <X size={11} />
               </button>
             )}
           </div>
@@ -129,25 +150,28 @@ export const TabBar: React.FC<TabBarProps> = ({
 
       {/* New Tab Button */}
       <button
+        type="button"
         onClick={onCreateTab}
         title="New Tab (Ctrl+T)"
         style={{
           border: 'none',
           background: 'transparent',
-          color: '#9ca3af',
-          fontSize: '16px',
-          padding: '4px 8px',
-          borderRadius: '6px',
+          color: 'var(--text-2)',
+          width: '26px',
+          height: '26px',
+          borderRadius: 'var(--radius-sm)',
           cursor: 'pointer',
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
           WebkitAppRegion: 'no-drag',
+          flexShrink: 0,
+          transition: 'background 0.12s ease',
         } as React.CSSProperties}
-        onMouseEnter={(e) => (e.currentTarget.style.background = '#1f2937')}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
-        +
+        <Plus size={14} />
       </button>
 
       {/* Context Menu Popup */}
@@ -157,17 +181,26 @@ export const TabBar: React.FC<TabBarProps> = ({
             position: 'fixed',
             top: contextMenu.y,
             left: contextMenu.x,
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '6px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+            background: 'var(--bg-1)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
             zIndex: 10000,
-            padding: '4px 0',
+            padding: '4px',
             width: '140px',
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#f3f4f6' }}
+            style={{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             onClick={() => {
               onCloseTab(contextMenu.tabId);
               closeContextMenu();
@@ -176,7 +209,15 @@ export const TabBar: React.FC<TabBarProps> = ({
             Close Tab
           </div>
           <div
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#f3f4f6' }}
+            style={{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             onClick={() => {
               onDuplicateTab(contextMenu.tabId);
               closeContextMenu();
@@ -185,7 +226,15 @@ export const TabBar: React.FC<TabBarProps> = ({
             Duplicate
           </div>
           <div
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#f3f4f6' }}
+            style={{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             onClick={() => {
               onTogglePinTab(contextMenu.tabId);
               closeContextMenu();
