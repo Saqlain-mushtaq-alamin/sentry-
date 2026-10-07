@@ -36,7 +36,7 @@ function createWindow(): void {
   tabManager = new TabManager(mainWindow, storageManager);
   downloadManager = new DownloadManager(mainWindow, storageManager);
   agentService = new AgentService(mainWindow, storageManager, tabManager);
-  
+
   extensionManager = new ExtensionManager(tabManager);
   // electron-chrome-extensions needs to be initialized after session is ready
   extensionManager.initialize();
@@ -118,6 +118,8 @@ ipcMain.handle('extensions:toggle', async (_, id: string, enabled: boolean) => e
 
 // View Layout IPC Handlers
 ipcMain.handle('view:set-layout-offsets', (_, offsets) => tabManager.setLayoutOffsets(offsets));
+ipcMain.handle('view:set-bounds', (_, bounds) => tabManager.setContentBounds(bounds));
+ipcMain.handle('view:set-hidden', (_, hidden) => tabManager.setHidden(hidden));
 
 app.whenReady().then(() => {
   createWindow();
