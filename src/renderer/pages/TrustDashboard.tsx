@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Shield, AlertTriangle } from 'lucide-react';
 import { SiteTrustEntry, SiteTrustLevel } from '../../shared/types';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { IconButton } from '../components/ui/IconButton';
+import { Modal } from '../components/ui/Modal';
+import { Badge } from '../components/ui/Badge';
 import { ForgetControls } from '../components/ForgetControls';
-import './TrustDashboard.css';
 
 export const TrustDashboard: React.FC = () => {
   const [entries, setEntries] = useState<SiteTrustEntry[]>([]);
   const [filter, setFilter] = useState('');
   const [newDomain, setNewDomain] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [pendingWarning, setPendingWarning] = useState<{
+    domain: string;
+    targetLevel: SiteTrustLevel;
+  } | null>(null);
 
   const loadEntries = async () => {
     const sentry = (window as any).sentry;
@@ -15,12 +25,11 @@ export const TrustDashboard: React.FC = () => {
       const liveEntries = await sentry.trust.getAll();
       setEntries(liveEntries || []);
     } else {
-      // Fallback mock data when running outside Electron (browser dev mode)
       setEntries([
         { domain: 'chase.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
         { domain: 'gmail.com', trustLevel: SiteTrustLevel.HIGHLY_RESTRICTED, setBy: 'default', lastModified: Date.now() },
         { domain: 'example.com', trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() },
-        { domain: 'malicious.com', trustLevel: SiteTrustLevel.BLOCKED, setBy: 'user', lastModified: Date.now() }
+        { domain: 'malicious.com', trustLevel: SiteTrustLevel.BLOCKED, setBy: 'user', lastModified: Date.now() },
       ]);
     }
   };
@@ -30,22 +39,25 @@ export const TrustDashboard: React.FC = () => {
   }, []);
 
   const handleTrustChange = async (domain: string, newLevel: SiteTrustLevel) => {
-    const entry = entries.find(e => e.domain === domain);
+    const entry = entries.find((e) => e.domain === domain);
     if (!entry) return;
 
     if (entry.trustLevel === SiteTrustLevel.HIGHLY_RESTRICTED && newLevel !== SiteTrustLevel.HIGHLY_RESTRICTED) {
-      const confirm = window.confirm(
-        `WARNING: You are downgrading the trust level of ${domain} from HIGHLY RESTRICTED to ${newLevel}. ` +
-        `This will allow the AI agent to perform more actions on this site without explicit confirmation.\n\nAre you sure you want to proceed?`
-      );
-      if (!confirm) return;
+      setPendingWarning({ domain, targetLevel: newLevel });
+      return;
     }
 
+    applyTrustChange(domain, newLevel);
+  };
+
+  const applyTrustChange = async (domain: string, newLevel: SiteTrustLevel) => {
     const sentry = (window as any).sentry;
     if (sentry?.trust?.setLevel) {
       await sentry.trust.setLevel(domain, newLevel);
     }
-    setEntries(prev => prev.map(e => e.domain === domain ? { ...e, trustLevel: newLevel, setBy: 'user', lastModified: Date.now() } : e));
+    setEntries((prev) =>
+      prev.map((e) => (e.domain === domain ? { ...e, trustLevel: newLevel, setBy: 'user', lastModified: Date.now() } : e))
+    );
   };
 
   const handleAddDomain = async () => {
@@ -55,100 +67,210 @@ export const TrustDashboard: React.FC = () => {
     if (sentry?.trust?.setLevel) {
       await sentry.trust.setLevel(domain, SiteTrustLevel.READ_ACT);
     }
-    setEntries(prev => [...prev, { domain, trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() }]);
+    setEntries((prev) => [...prev, { domain, trustLevel: SiteTrustLevel.READ_ACT, setBy: 'user', lastModified: Date.now() }]);
     setNewDomain('');
     setIsAdding(false);
   };
 
   const handleRemoveDomain = async (domain: string) => {
-    setEntries(prev => prev.filter(e => e.domain !== domain));
-    // Note: TrustManager doesn't have a delete API — removing from local state is the best we can do
-    // without adding a new IPC channel. Could also set to READ_ACT which is the default.
+    setEntries((prev) => prev.filter((e) => e.domain !== domain));
   };
 
-  const getIconForLevel = (level: SiteTrustLevel) => {
+  const getLevelBadge = (level: SiteTrustLevel) => {
     switch (level) {
-      case SiteTrustLevel.READ_ACT: return '🟢';
-      case SiteTrustLevel.READ_ONLY: return '🟡';
-      case SiteTrustLevel.HIGHLY_RESTRICTED: return '🔴';
-      case SiteTrustLevel.BLOCKED: return '⚫';
+      case SiteTrustLevel.READ_ACT:
+        return <Badge variant="ok" dot>Read & Act</Badge>;
+      case SiteTrustLevel.READ_ONLY:
+        return <Badge variant="warn" dot>Read only</Badge>;
+      case SiteTrustLevel.HIGHLY_RESTRICTED:
+        return <Badge variant="danger" dot>Restricted</Badge>;
+      case SiteTrustLevel.BLOCKED:
+        return <Badge variant="neutral" dot>Blocked</Badge>;
     }
   };
 
-  const filteredEntries = entries.filter(e => e.domain.includes(filter));
+  const filteredEntries = entries.filter((e) => e.domain.toLowerCase().includes(filter.toLowerCase()));
 
   return (
-    <div className="trust-dashboard">
-      <h1>Security & Trust Dashboard</h1>
-      <p>Manage how Sentry interacts with different websites.</p>
-      
-      <div className="trust-controls">
-        <input 
-          type="text" 
-          placeholder="Search domains..." 
-          value={filter} 
-          onChange={e => setFilter(e.target.value)} 
-          className="search-input"
-        />
+    <PageShell
+      title="Security & Trust"
+      description="Define permissions for how the AI agent interacts with specific web domains."
+    >
+      {/* Controls Bar */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'var(--bg-1)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '4px 10px',
+            flex: 1,
+          }}
+        >
+          <Search size={14} style={{ color: 'var(--text-3)' }} />
+          <input
+            type="text"
+            placeholder="Search domains…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: 'var(--text)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+
         {isAdding ? (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
             <input
               type="text"
-              placeholder="example.com"
+              placeholder="domain.com"
               value={newDomain}
-              onChange={e => setNewDomain(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddDomain()}
-              className="search-input"
+              onChange={(e) => setNewDomain(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddDomain()}
+              style={{
+                background: 'var(--bg-1)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '4px 8px',
+                fontSize: '12px',
+                color: 'var(--text)',
+                fontFamily: 'inherit',
+                outline: 'none',
+                width: '140px',
+              }}
               autoFocus
             />
-            <button className="add-domain-btn" onClick={handleAddDomain}>Add</button>
-            <button className="delete-btn" onClick={() => { setIsAdding(false); setNewDomain(''); }}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={handleAddDomain}>
+              Add
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => { setIsAdding(false); setNewDomain(''); }}>
+              Cancel
+            </Button>
           </div>
         ) : (
-          <button className="add-domain-btn" onClick={() => setIsAdding(true)}>+ Add Domain</button>
+          <Button variant="secondary" size="sm" onClick={() => setIsAdding(true)} icon={<Plus size={13} />}>
+            Add domain
+          </Button>
         )}
       </div>
 
-      <table className="trust-table">
-        <thead>
-          <tr>
-            <th>Domain</th>
-            <th>Trust Level</th>
-            <th>Source</th>
-            <th>Last Modified</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredEntries.map(entry => (
-            <tr key={entry.domain}>
-              <td>{getIconForLevel(entry.trustLevel)} <strong>{entry.domain}</strong></td>
-              <td>
-                <select 
-                  value={entry.trustLevel} 
-                  onChange={e => handleTrustChange(entry.domain, e.target.value as SiteTrustLevel)}
+      {/* Trust Table */}
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', color: 'var(--text-2)' }}>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Domain</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Trust status</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Policy selector</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Source</th>
+                <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 500 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEntries.map((entry) => (
+                <tr
+                  key={entry.domain}
+                  style={{ borderBottom: '1px solid var(--border)' }}
                 >
-                  <option value={SiteTrustLevel.READ_ACT}>Read & Act</option>
-                  <option value={SiteTrustLevel.READ_ONLY}>Read Only</option>
-                  <option value={SiteTrustLevel.HIGHLY_RESTRICTED}>Highly Restricted</option>
-                  <option value={SiteTrustLevel.BLOCKED}>Blocked</option>
-                </select>
-              </td>
-              <td>{entry.setBy === 'default' ? 'System Default' : 'User Configured'}</td>
-              <td>{new Date(entry.lastModified).toLocaleDateString()}</td>
-              <td>
-                <button className="delete-btn" onClick={() => handleRemoveDomain(entry.domain)}>Remove</button>
-              </td>
-            </tr>
-          ))}
-          {filteredEntries.length === 0 && (
-            <tr><td colSpan={5} style={{ textAlign: 'center', color: '#6b7280', padding: '20px' }}>No domains configured. Add a domain above or visit websites to populate this list.</td></tr>
-          )}
-        </tbody>
-      </table>
+                  <td style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--text)' }}>
+                    {entry.domain}
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>
+                    {getLevelBadge(entry.trustLevel)}
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <select
+                      value={entry.trustLevel}
+                      onChange={(e) => handleTrustChange(entry.domain, e.target.value as SiteTrustLevel)}
+                      style={{
+                        background: 'var(--bg-1)',
+                        color: 'var(--text)',
+                        border: '1px solid var(--border)',
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '11px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value={SiteTrustLevel.READ_ACT}>Read & Act</option>
+                      <option value={SiteTrustLevel.READ_ONLY}>Read Only</option>
+                      <option value={SiteTrustLevel.HIGHLY_RESTRICTED}>Highly Restricted</option>
+                      <option value={SiteTrustLevel.BLOCKED}>Blocked</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: '8px 12px', color: 'var(--text-3)', fontSize: '11px' }}>
+                    {entry.setBy === 'default' ? 'System default' : 'Custom'}
+                  </td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                    <IconButton
+                      label="Remove rule"
+                      onClick={() => handleRemoveDomain(entry.domain)}
+                      style={{ color: 'var(--text-3)', marginLeft: 'auto' }}
+                    >
+                      <Trash2 size={13} />
+                    </IconButton>
+                  </td>
+                </tr>
+              ))}
+              {filteredEntries.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-3)', padding: '24px' }}>
+                    No matching domains found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
+      {/* Memory Controls */}
       <ForgetControls />
-    </div>
+
+      {/* Warning Modal when downgrading restricted domains */}
+      {pendingWarning && (
+        <Modal
+          isOpen={true}
+          onClose={() => setPendingWarning(null)}
+          title="Lower security restriction"
+          description={`You are changing the security level of ${pendingWarning.domain} from Highly Restricted to ${pendingWarning.targetLevel}.`}
+          footer={
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setPendingWarning(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  applyTrustChange(pendingWarning.domain, pendingWarning.targetLevel);
+                  setPendingWarning(null);
+                }}
+              >
+                Apply change
+              </Button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+            <AlertTriangle size={18} style={{ color: 'var(--warn)', flexShrink: 0 }} />
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.4 }}>
+              This domain is marked sensitive by default (e.g. banking or email). Lowering its security tier allows the AI agent to interact with form inputs and take actions without requiring manual confirmation.
+            </p>
+          </div>
+        </Modal>
+      )}
+    </PageShell>
   );
 };
-
