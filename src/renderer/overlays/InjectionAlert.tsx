@@ -1,4 +1,7 @@
 import React from 'react';
+import { ShieldAlert, Check } from 'lucide-react';
+import { useHideNativeView } from '../hooks/useHideNativeView';
+import { Button } from '../components/ui/Button';
 import './InjectionAlert.css';
 
 interface DetectionResult {
@@ -24,55 +27,66 @@ interface InjectionAlertProps {
   onReportFalsePositive: () => void;
 }
 
-export const InjectionAlert: React.FC<InjectionAlertProps> = ({ report, onDismiss, onReportFalsePositive }) => {
-  const primaryDetection = report.detections[0];
+export const InjectionAlert: React.FC<InjectionAlertProps> = ({
+  report,
+  onDismiss,
+  onReportFalsePositive,
+}) => {
+  useHideNativeView(true);
+
+  const primaryDetection = report?.detections?.[0] || {
+    sourceLocation: 'Page DOM',
+    sourceText: 'Attempted prompt injection sequence',
+    matchedPatterns: ['system_prompt_override'],
+  };
 
   return (
-    <div className="injection-alert-overlay">
-      <div className="injection-alert-modal">
+    <div className="injection-alert-overlay" onClick={onDismiss}>
+      <div className="injection-alert-modal" onClick={(e) => e.stopPropagation()}>
         <div className="injection-alert-header">
-          <span className="icon">🛡️</span>
-          <h2>PROMPT INJECTION DETECTED</h2>
+          <ShieldAlert size={18} style={{ color: 'var(--warn)', flexShrink: 0 }} />
+          <h2>Suspicious content blocked on this page</h2>
         </div>
-        
+
         <div className="injection-alert-body">
           <p className="intro-text">
-            This page contains hidden or suspicious text that attempted to override Sentry's instructions:
+            Sentry's safety filter neutralized text that attempted to override the AI agent's instructions before it could execute:
           </p>
-          
+
           <div className="detection-details">
             <div className="detail-row">
-              <strong>Source:</strong> <span>{primaryDetection.sourceLocation}</span>
+              <span className="detail-label">Source:</span>
+              <span className="detail-val">{primaryDetection.sourceLocation}</span>
             </div>
             <div className="detail-row">
-              <strong>Content:</strong> 
+              <span className="detail-label">Content:</span>
               <code className="suspicious-content">"{primaryDetection.sourceText}"</code>
             </div>
-            <div className="detail-row">
-              <strong>Matched Pattern:</strong> <span>{primaryDetection.matchedPatterns.join(', ')}</span>
-            </div>
+            {primaryDetection.matchedPatterns && primaryDetection.matchedPatterns.length > 0 && (
+              <div className="detail-row">
+                <span className="detail-label">Matched pattern:</span>
+                <span className="detail-val">{primaryDetection.matchedPatterns.join(', ')}</span>
+              </div>
+            )}
           </div>
-          
+
           <div className="what-happened">
-            <h3>What happened:</h3>
+            <h3>Safety summary</h3>
             <ul>
-              <li>✅ The malicious content was detected</li>
-              <li>✅ It was removed before reaching the AI agent</li>
-              <li>✅ No unsafe actions were taken</li>
+              <li><Check size={13} style={{ color: 'var(--ok)' }} /> Potentially hostile instructions were stripped</li>
+              <li><Check size={13} style={{ color: 'var(--ok)' }} /> No unauthorized actions were executed</li>
+              <li><Check size={13} style={{ color: 'var(--ok)' }} /> Your browsing session remains secure</li>
             </ul>
           </div>
-          
-          <div className="why-matters">
-            <h3>Why this matters:</h3>
-            <p>
-              Webpage content cannot override your instructions to Sentry. This is a safety feature that prevents websites from hijacking the agent to exfiltrate data or perform unauthorized actions.
-            </p>
-          </div>
         </div>
-        
+
         <div className="injection-alert-footer">
-          <button className="btn-secondary" onClick={onReportFalsePositive}>Report False Positive</button>
-          <button className="btn-primary" onClick={onDismiss}>Dismiss</button>
+          <Button variant="secondary" size="sm" onClick={onReportFalsePositive}>
+            Report false positive
+          </Button>
+          <Button variant="primary" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
         </div>
       </div>
     </div>
