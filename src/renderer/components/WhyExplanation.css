@@ -1,134 +1,123 @@
 .why-modal-backdrop {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 15, 26, 0.65);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: grid;
+  place-items: center;
   z-index: 10000;
+  padding: 16px;
+  font-family: inherit;
 }
 
 .why-card {
-  background: #1e1e2e;
-  border-radius: 12px;
-  width: 480px;
-  max-width: 90vw;
-  color: #cdd6f4;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 .why-header {
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
   display: flex;
-  align-items: center;
   justify-content: space-between;
-}
-
-.why-header h3 {
-  margin: 0;
-  font-size: 15px;
-  color: #f5e0dc;
-}
-
-.why-close-btn {
-  background: transparent;
-  border: none;
-  color: #a6adc8;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.why-close-btn:hover {
-  color: #f38ba8;
+  align-items: center;
 }
 
 .why-body {
-  padding: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: 12px;
+  color: var(--text);
 }
 
 .why-action-title {
-  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.why-action-title code {
-  background: #313244;
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
-  color: #89b4fa;
 }
 
 .why-section {
-  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.why-section label {
-  display: block;
+.why-section-label {
   font-size: 11px;
-  font-weight: 600;
-  color: #a6adc8;
-  margin-bottom: 4px;
-  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-3);
 }
 
 .why-reason-text {
-  margin: 0;
-  font-size: 13px;
-  color: #a6e3a1;
-  background: rgba(166, 227, 161, 0.06);
-  padding: 10px;
-  border-radius: 6px;
+  color: var(--text);
   line-height: 1.4;
-  border-left: 3px solid #a6e3a1;
+  font-style: italic;
+  background: var(--bg-2);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 
 .why-code {
-  display: block;
-  background: #11111b;
-  color: #f9e2af;
-  padding: 8px;
-  border-radius: 4px;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   font-family: monospace;
-  font-size: 12px;
-  word-break: break-all;
+  font-size: 11px;
+  color: var(--accent);
 }
 
 .why-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
-  background: #181825;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 12px;
 }
 
-.why-grid label {
-  display: block;
+.why-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.why-grid-label {
   font-size: 10px;
-  color: #6c7086;
-  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.why-grid-val {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 500;
 }
 
 .why-meta {
-  font-size: 11px;
-  color: #6c7086;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 10px;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
