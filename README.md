@@ -21,6 +21,13 @@ To launch the browser shell locally in development mode (with Vite Hot Module Re
 npm run dev
 ```
 
+```bash
+cd D:\canvas\Sentry
+npm install
+npm run dev 
+
+```
+
 ---
 
 ## 🛠️ Available Scripts
