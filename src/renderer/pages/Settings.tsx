@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { UserSettings } from '../../shared/types';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { ForgetControls } from '../components/ForgetControls';
 
 interface SettingsProps {
   onClearHistory: () => void;
@@ -14,6 +19,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClearHistory }) => {
     defaultDownloadPath: '',
     askDownloadPath: false,
   });
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.sentry) {
@@ -29,24 +35,68 @@ export const Settings: React.FC<SettingsProps> = ({ onClearHistory }) => {
     if (window.sentry) {
       window.sentry.settings.update(updates);
     }
+    setNotice('Settings saved.');
+    setTimeout(() => setNotice(null), 2500);
+  };
+
+  const handleClearData = () => {
+    onClearHistory();
+    setNotice('Browsing data cleared.');
+    setTimeout(() => setNotice(null), 3000);
   };
 
   return (
-    <div style={{ padding: '2rem 4rem', color: '#f8fafc', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.75rem' }}>
-        Settings
-      </h1>
+    <PageShell
+      title="Settings"
+      description="Configure browser preferences, search, privacy, and developer tools."
+    >
+      {notice && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '12px',
+            background: 'var(--ok-bg)',
+            color: 'var(--ok)',
+            border: '1px solid rgba(63, 178, 127, 0.25)',
+          }}
+        >
+          <Check size={14} />
+          <span>{notice}</span>
+        </div>
+      )}
 
-      {/* General Settings */}
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', color: '#60a5fa', marginBottom: '1rem' }}>Search & Startup</h2>
+      {/* Search & Navigation */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Search & startup
+        </h2>
 
-        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label>Default Search Engine</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Default search engine
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Used when entering queries in the address bar.
+            </p>
+          </div>
           <select
             value={settings.searchEngine}
             onChange={(e) => handleUpdate({ searchEngine: e.target.value as UserSettings['searchEngine'] })}
-            style={{ background: '#1e293b', color: '#fff', border: '1px solid #475569', padding: '6px 12px', borderRadius: '6px' }}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
           >
             <option value="google">Google</option>
             <option value="duckduckgo">DuckDuckGo</option>
@@ -54,85 +104,99 @@ export const Settings: React.FC<SettingsProps> = ({ onClearHistory }) => {
           </select>
         </div>
 
-        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label>On Startup</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              On startup
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Choose what happens when opening a new browser window.
+            </p>
+          </div>
           <select
             value={settings.startupBehavior}
             onChange={(e) => handleUpdate({ startupBehavior: e.target.value as UserSettings['startupBehavior'] })}
-            style={{ background: '#1e293b', color: '#fff', border: '1px solid #475569', padding: '6px 12px', borderRadius: '6px' }}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
           >
-            <option value="newtab">Open New Tab</option>
-            <option value="restore">Restore last session</option>
+            <option value="newtab">Open new tab page</option>
+            <option value="restore">Restore previous session</option>
           </select>
         </div>
-      </section>
 
-      {/* Appearance */}
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', color: '#60a5fa', marginBottom: '1rem' }}>Appearance</h2>
-
-        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label>Theme</label>
-          <select
-            value={settings.theme}
-            onChange={(e) => handleUpdate({ theme: e.target.value as UserSettings['theme'] })}
-            style={{ background: '#1e293b', color: '#fff', border: '1px solid #475569', padding: '6px 12px', borderRadius: '6px' }}
-          >
-            <option value="dark">Dark Mode</option>
-            <option value="light">Light Mode</option>
-            <option value="system">System Default</option>
-          </select>
-        </div>
-      </section>
-
-      {/* Privacy */}
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', color: '#60a5fa', marginBottom: '1rem' }}>Privacy & Data</h2>
-        <button
-          onClick={() => {
-            onClearHistory();
-            alert('Browsing history cleared!');
-          }}
-          style={{
-            background: '#ef4444',
-            color: '#fff',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          Clear Browsing Data
-        </button>
-      </section>
-
-      {/* Advanced Developer Mode */}
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', color: '#38bdf8', marginBottom: '1rem' }}>Advanced & Developer Mode</h2>
-        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '1rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: 600 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Bookmarks bar
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Show the bookmarks toolbar beneath the address bar when bookmarks exist.
+            </p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
               type="checkbox"
-              checked={settings.developerMode ?? false}
-              onChange={(e) => handleUpdate({ developerMode: e.target.checked })}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              checked={settings.showBookmarksBar ?? true}
+              onChange={(e) => handleUpdate({ showBookmarksBar: e.target.checked })}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
             />
-            Enable Developer / Research Mode
           </label>
-          <p style={{ color: '#fbbf24', fontSize: '0.85rem', marginTop: '0.5rem', lineHeight: '1.4' }}>
-            ⚠️ <strong>Warning:</strong> Developer mode exposes internal prompts, agent execution traces, model latency metrics, and benchmark suites. Recommended for advanced users and security researchers.
-          </p>
         </div>
-      </section>
+      </Card>
 
-      {/* Agent Settings */}
-      <section>
-        <h2 style={{ fontSize: '1.25rem', color: '#a855f7', marginBottom: '1rem' }}>Agent & Model Settings</h2>
-        <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-          Model Router, Risk Tier Policies, Local-First Mode options, and Recipe Memory management are active.
-        </p>
-      </section>
-    </div>
+      {/* Privacy & Browsing Data */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Browsing data
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Clear browsing history
+            </span>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Removes all visited URLs and history entries.
+            </p>
+          </div>
+          <Button variant="danger" size="sm" onClick={handleClearData}>
+            Clear history
+          </Button>
+        </div>
+      </Card>
+
+      {/* Memory Management */}
+      <ForgetControls />
+
+      {/* Advanced & Developer Mode */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Developer & research tools
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              <input
+                type="checkbox"
+                checked={settings.developerMode ?? false}
+                onChange={(e) => handleUpdate({ developerMode: e.target.checked })}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+              />
+              Enable developer mode
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', lineHeight: 1.4 }}>
+              Exposes step execution traces, CDP latency metrics, Ollama inspection, and security benchmark suites.
+            </p>
+          </div>
+        </div>
+      </Card>
+    </PageShell>
   );
 };
