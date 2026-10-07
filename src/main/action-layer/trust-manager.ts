@@ -1,6 +1,7 @@
 import { SiteTrustEntry, SiteTrustLevel } from '../../shared/types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getDomain, getHostname } from 'tldts';
 
 export class TrustManager {
   private trustList: Map<string, SiteTrustEntry> = new Map();
@@ -66,11 +67,21 @@ export class TrustManager {
     this.saveTrustList();
   }
 
+  public removeTrustEntry(domain: string): boolean {
+    const deleted = this.trustList.delete(domain);
+    if (deleted) {
+      this.saveTrustList();
+    }
+    return deleted;
+  }
+
   public getAllTrustEntries(): SiteTrustEntry[] {
     return Array.from(this.trustList.values());
   }
 
   private extractDomain(url: string): string {
+    const hostname = getHostname(url);
+    if (hostname) return hostname;
     try {
       if (!url.startsWith('http')) return url;
       const urlObj = new URL(url);
@@ -81,12 +92,9 @@ export class TrustManager {
   }
   
   private extractBaseDomain(domain: string): string {
-    const parts = domain.split('.');
-    if (parts.length > 2) {
-      return parts.slice(-2).join('.'); // very basic, enough for most cases
-    }
-    return domain;
+    return getDomain(domain) || domain;
   }
+
 
   private loadTrustList() {
     if (!this.userDataPath) return;
