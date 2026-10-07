@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
+import * as path from 'path';
 import * as crypto from 'crypto';
 import { ReActLoop } from './react-loop';
 import { OpenAIAdapter } from './adapters/openai-adapter';
@@ -16,6 +17,7 @@ import { ElementResolver } from '../cdp/element-resolver';
 import { ActionLogEntry, AgentTask, ChatMessage, TaskState, DeveloperSessionStats, TraceStep, TaskTrace } from '../../shared/types';
 import { StorageManager } from '../browser/storage-manager';
 import { TabManager } from '../browser/tab-manager';
+import { SecretStore } from '../browser/secret-store';
 
 import { InjectionDetector } from '../action-layer/injection-detector';
 import { ModelRouter, RoutingContext } from './model-router';
@@ -45,7 +47,9 @@ export class AgentService {
   private mainWindow: BrowserWindow;
   private actionHistory: ActionLogEntry[] = [];
   private trustManager: TrustManager;
-
+  private permissionManager: PermissionManager;
+  private auditLog: AuditLog;
+  private secretStore: SecretStore;
 
   private currentDeveloperStats: DeveloperSessionStats = {
     tasksCompleted: 0,
@@ -91,24 +95,30 @@ export class AgentService {
     this.storageManager = storageManager;
     this.tabManager = tabManager;
 
+    let userData = '';
+    try {
+      userData = app.getPath('userData');
+    } catch {
+      userData = process.cwd();
+    }
+
     this.cdp = new CDPManager((tabId) => this.tabManager.getView(tabId));
     const classifier = new RiskClassifier();
-    this.trustManager = new TrustManager();
-    const permissionManager = new PermissionManager();
-    const auditLog = new AuditLog();
+    this.trustManager = new TrustManager(userData);
+    this.permissionManager = new PermissionManager();
+    this.auditLog = new AuditLog(path.join(userData, 'audit-log.json'));
+    this.secretStore = new SecretStore(path.join(userData, 'secrets.json'));
 
-    this.firewall = new ActionFirewall(classifier, this.trustManager, permissionManager, auditLog);
+    this.firewall = new ActionFirewall(classifier, this.trustManager, this.permissionManager, this.auditLog);
     this.observer = new PageObserver(this.cdp);
     this.resolver = new ElementResolver();
     this.actionExecutor = new ActionExecutor(this.cdp, this.observer, this.resolver);
     this.detector = new InjectionDetector(this.cdp);
-    this.modelRouter = new ModelRouter({
-      localModel: 'llama3.1:8b',
-      cloudModel: 'gpt-4o',
-      routingMode: 'auto'
-    }, this.getCloudAdapter());
+
+    const saved = this.storageManager.getModelConfig();
+    this.modelRouter = new ModelRouter(saved, this.buildCloudAdapter(saved.cloudModel));
     
-    this.recipeManager = new RecipeManager();
+    this.recipeManager = new RecipeManager(path.join(userData, 'sentry-recipes.enc'));
     this.recipeCapture = new RecipeCapture();
     this.replayEngine = new RecipeReplayEngine(this.actionExecutor, this.firewall, this.observer);
 
@@ -125,17 +135,18 @@ export class AgentService {
     this.registerIpcHandlers();
   }
 
-  private getCloudAdapter(): ModelAdapter {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-
-    if (process.env.ANTHROPIC_API_KEY) {
-      return new AnthropicAdapter(process.env.ANTHROPIC_API_KEY);
+  private buildCloudAdapter(model: string): ModelAdapter {
+    if (model.startsWith('claude')) {
+      const key = this.secretStore.get('anthropic') || process.env.ANTHROPIC_API_KEY;
+      if (key) return new AnthropicAdapter(key, model);
+    } else {
+      const key = this.secretStore.get('openai') || process.env.OPENAI_API_KEY;
+      if (key) return new OpenAIAdapter(key, model);
     }
-    if (apiKey) {
-      return new OpenAIAdapter(apiKey);
-    }
+    return this.createMockAdapter();
+  }
 
-    // Default Mock Adapter when no API key is provided
+  private createMockAdapter(): ModelAdapter {
     let step = 0;
     return {
       providerId: 'mock',
@@ -153,7 +164,6 @@ export class AgentService {
         
         if (step === 1 && urlMatch) {
           let url = urlMatch[0];
-          // Clean up "go to" prefix if present
           if (!url.startsWith('http')) {
             url = 'https://' + (urlMatch[1] || url.replace(/^(?:go to|navigate to|open|visit)\s+/i, ''));
           }
@@ -163,7 +173,7 @@ export class AgentService {
         } else if (step === 1) {
           action = { type: 'scroll', direction: 'down', amount: 500, reason: 'Mock: scanning page content.' };
         } else {
-          action = { type: 'done', reason: 'Mock task completed! Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable, or install Ollama (ollama.com) for real AI-powered tasks.' };
+          action = { type: 'done', reason: 'Mock task completed! Set OPENAI_API_KEY or ANTHROPIC_API_KEY in AI Models settings, or install Ollama for real AI-powered tasks.' };
           step = 0;
         }
 
@@ -171,7 +181,7 @@ export class AgentService {
           content: JSON.stringify({
             thought: step === 1
               ? `I see the current page state. I will now perform: ${action.type}.`
-              : `Task appears complete. Real AI requires an API key or Ollama running locally.`,
+              : `Task appears complete.`,
             action
           }),
           tokenUsage: { prompt: 50, completion: 50, total: 100 },
@@ -185,6 +195,7 @@ export class AgentService {
       estimateTokens(text: string) { return Math.ceil(text.length / 4); },
     };
   }
+
 
   private registerIpcHandlers(): void {
     ipcMain.handle('agent:run-task', async (_, instruction: string) => {
@@ -228,6 +239,30 @@ export class AgentService {
         this.observer,
         this.detector,
       );
+
+      this.reactLoop.onConfirmationRequired((action, decision) =>
+        new Promise((resolve) => {
+          const channel = `agent:confirm:${action.id}`;
+          const timer = setTimeout(() => {
+            ipcMain.removeHandler(channel);
+            resolve('deny');
+          }, 120_000);
+          ipcMain.handleOnce(channel, (_, response: 'allow_once' | 'allow_site' | 'deny') => {
+            clearTimeout(timer);
+            if (response === 'allow_site') {
+              let domain = action.url || '';
+              try {
+                if (action.url && (action.url.startsWith('http://') || action.url.startsWith('https://'))) {
+                  domain = new URL(action.url).hostname;
+                }
+              } catch {}
+              this.permissionManager.grant(domain, `${action.type}:${action.target}`, 'site', decision.riskTier);
+            }
+            resolve(response);
+          });
+          this.mainWindow.webContents.send('agent:confirmation-required', { action, decision });
+        }));
+
 
       // Wire up native navigation — agent navigate actions go through TabManager,
       // not CDP window.location.href (which doesn't work on sentry:// internal pages)
@@ -501,30 +536,86 @@ export class AgentService {
     });
 
     ipcMain.handle('trust:set-level', (_, domain: string, level: string) => {
-      const { SiteTrustLevel } = require('../../shared/types');
       this.trustManager.setTrustLevel(domain, level as any);
       return true;
+    });
+
+    ipcMain.handle('trust:remove', (_, domain: string) => {
+      return this.trustManager.removeTrustEntry(domain);
     });
 
     ipcMain.handle('trust:get-defaults', () => {
       return this.trustManager.HIGHLY_RESTRICTED_DEFAULTS;
     });
 
+    // ── Secrets IPC ───────────────────────────────────────────────────────
+    ipcMain.handle('secrets:set', (_, name: string, value: string) => {
+      this.secretStore.set(name, value);
+      const savedConfig = this.storageManager.getModelConfig();
+      this.modelRouter.setCloudAdapter(this.buildCloudAdapter(savedConfig.cloudModel));
+      return true;
+    });
+
+    ipcMain.handle('secrets:has', (_, name: string) => {
+      if (name === 'openai') return this.secretStore.has('openai') || !!process.env.OPENAI_API_KEY;
+      if (name === 'anthropic') return this.secretStore.has('anthropic') || !!process.env.ANTHROPIC_API_KEY;
+      return this.secretStore.has(name);
+    });
+
+    // ── Voice Transcribe IPC ──────────────────────────────────────────────
+    ipcMain.handle('voice:transcribe', async (_, audio: ArrayBuffer, mime: string) => {
+      const key = this.secretStore.get('openai') || process.env.OPENAI_API_KEY;
+      if (!key) throw new Error('Add an OpenAI API key in AI Models to use voice input.');
+      const form = new FormData();
+      form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), 'speech.webm');
+      form.append('model', 'whisper-1');
+      const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json() as { text: string };
+      return data.text;
+    });
+
+    // ── Privacy & Memory IPC ──────────────────────────────────────────────
+    ipcMain.handle('agent:forget-site', async (_, domain?: string) => {
+      const targetDomain = domain || this.tabManager.getActiveTab()?.url || '';
+      if (targetDomain) {
+        this.storageManager.forgetSite(targetDomain);
+        let host = targetDomain;
+        try {
+          if (targetDomain.startsWith('http')) host = new URL(targetDomain).hostname;
+        } catch {}
+        this.trustManager.removeTrustEntry(host);
+      }
+      return true;
+    });
+
+    ipcMain.handle('agent:clear-logs', () => {
+      this.auditLog.clear();
+      this.actionHistory = [];
+      return true;
+    });
+
+    ipcMain.handle('agent:forget-all', () => {
+      this.recipeManager.forgetAll();
+      this.auditLog.clear();
+      this.actionHistory = [];
+      this.storageManager.clearHistory();
+      return true;
+    });
+
     // ── Model Router Config IPC ───────────────────────────────────────────
     ipcMain.handle('agent:get-model-config', () => {
-      return {
-        localModel: 'llama3.1:8b',
-        cloudModel: 'gpt-4o',
-        routingMode: 'auto',
-      };
+      return this.storageManager.getModelConfig();
     });
 
     ipcMain.handle('agent:set-model-config', (_, config: { localModel: string; cloudModel: string; routingMode: string }) => {
-      this.modelRouter.updateConfig({
-        localModel: config.localModel,
-        cloudModel: config.cloudModel,
-        routingMode: config.routingMode as any,
-      });
+      const saved = this.storageManager.updateModelConfig(config as any);
+      this.modelRouter.updateConfig(saved);
+      this.modelRouter.setCloudAdapter(this.buildCloudAdapter(saved.cloudModel));
       return true;
     });
 
@@ -539,5 +630,6 @@ export class AgentService {
       const ollama = new OllamaAdapter();
       return await ollama.isAvailable();
     });
+
   }
 }
