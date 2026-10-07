@@ -1,13 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { TabItem, BookmarkItem, HistoryItem } from '../../shared/types';
-import { CloudIndicator } from './CloudIndicator';
-import { CostMeter } from './CostMeter';
+import {
+  ArrowLeft,
+  ArrowRight,
+  RotateCw,
+  X,
+  Lock,
+  Globe,
+  Star,
+  Bot,
+  MoreHorizontal,
+  History as HistoryIcon,
+  Bookmark as BookmarkIcon,
+  Download,
+  Puzzle,
+  FileText,
+  ShieldCheck,
+  Cpu,
+  Terminal,
+  Settings as SettingsIcon,
+} from 'lucide-react';
+import { TabItem, BookmarkItem, HistoryItem, AgentNotification } from '../../shared/types';
+import { IconButton } from './ui/IconButton';
+import { Button } from './ui/Button';
+import { Menu, MenuItem, MenuDivider } from './ui/Menu';
+import { NotificationCenter } from './NotificationCenter';
+import { useHideNativeView } from '../hooks/useHideNativeView';
 
 interface AddressBarProps {
   activeTab: TabItem | null;
   bookmarks: BookmarkItem[];
   history: HistoryItem[];
   routingDecision?: any;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+  notifications: AgentNotification[];
+  onDismissNotification: (id: string) => void;
+  onClearNotifications: () => void;
   onNavigate: (url: string) => void;
   onGoBack: () => void;
   onGoForward: () => void;
@@ -20,7 +48,11 @@ export const AddressBar: React.FC<AddressBarProps> = ({
   activeTab,
   bookmarks,
   history,
-  routingDecision,
+  isSidebarOpen,
+  onToggleSidebar,
+  notifications,
+  onDismissNotification,
+  onClearNotifications,
   onNavigate,
   onGoBack,
   onGoForward,
@@ -31,6 +63,7 @@ export const AddressBar: React.FC<AddressBarProps> = ({
   const [inputUrl, setInputUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; url: string; type: string }[]>([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const activeUrl = activeTab?.url;
 
@@ -39,6 +72,10 @@ export const AddressBar: React.FC<AddressBarProps> = ({
       setInputUrl(activeUrl === 'sentry://newtab' ? '' : activeUrl);
     }
   }, [activeUrl]);
+
+  // Hide native WebContentsView when suggestions are showing so they aren't cut in half
+  const showSuggestions = isFocused && suggestions.length > 0;
+  useHideNativeView(showSuggestions);
 
   const handleInputChange = (val: string) => {
     setInputUrl(val);
@@ -77,114 +114,90 @@ export const AddressBar: React.FC<AddressBarProps> = ({
 
   const isBookmarked = activeTab ? bookmarks.some((b) => b.url === activeTab.url) : false;
   const isHttps = activeTab?.url.startsWith('https://');
+  const isInternal = activeTab?.url.startsWith('sentry://');
 
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        background: '#111827',
+        background: 'var(--bg-1)',
         padding: '6px 12px',
-        gap: '8px',
-        borderBottom: '1px solid #1f2937',
+        gap: '6px',
+        borderBottom: '1px solid var(--border)',
         position: 'relative',
+        height: '42px',
+        flexShrink: 0,
+        zIndex: 50,
       }}
     >
       {/* Navigation Buttons */}
-      <button
+      <IconButton
         id="nav-btn-back"
-        title="Go Back (Alt+Left)"
+        label="Go Back (Alt+Left)"
         disabled={!activeTab?.canGoBack}
         onClick={onGoBack}
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: activeTab?.canGoBack ? '#f3f4f6' : '#4b5563',
-          cursor: activeTab?.canGoBack ? 'pointer' : 'default',
-          fontSize: '15px',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          if (activeTab?.canGoBack) e.currentTarget.style.background = '#374151';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-        }}
       >
-        ←
-      </button>
+        <ArrowLeft size={15} />
+      </IconButton>
 
-      <button
+      <IconButton
         id="nav-btn-forward"
-        title="Go Forward (Alt+Right)"
+        label="Go Forward (Alt+Right)"
         disabled={!activeTab?.canGoForward}
         onClick={onGoForward}
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: activeTab?.canGoForward ? '#f3f4f6' : '#4b5563',
-          cursor: activeTab?.canGoForward ? 'pointer' : 'default',
-          fontSize: '15px',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          if (activeTab?.canGoForward) e.currentTarget.style.background = '#374151';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-        }}
       >
-        →
-      </button>
+        <ArrowRight size={15} />
+      </IconButton>
 
-      <button
+      <IconButton
         id="nav-btn-reload"
-        title={activeTab?.isLoading ? "Stop Loading (Esc)" : "Reload Page (Ctrl+R / F5)"}
+        label={activeTab?.isLoading ? 'Stop loading (Esc)' : 'Reload page (Ctrl+R)'}
         onClick={onReload}
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#f3f4f6',
-          cursor: 'pointer',
-          fontSize: '15px',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.15s ease',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = '#374151')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
-        {activeTab?.isLoading ? '✕' : '↻'}
-      </button>
+        {activeTab?.isLoading ? <X size={15} /> : <RotateCw size={14} />}
+      </IconButton>
 
-      {/* Address Form Input */}
-      <form onSubmit={handleSubmit} style={{ flexGrow: 1, position: 'relative' }}>
+      {/* Address Bar Form */}
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          flexGrow: 1,
+          minWidth: 0,
+          position: 'relative',
+          display: 'flex',
+        }}
+      >
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            background: '#1f2937',
-            borderRadius: '20px',
-            padding: '4px 12px',
-            border: isFocused ? '1px solid #3b82f6' : '1px solid transparent',
-            transition: 'all 0.2s ease',
+            width: '100%',
+            height: 'var(--control-h)',
+            background: 'var(--bg-2)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '0 8px',
+            border: isFocused ? '1px solid var(--accent)' : '1px solid var(--border)',
+            transition: 'border-color 0.15s ease',
           }}
         >
-          <span style={{ fontSize: '12px', marginRight: '6px' }}>
-            {activeTab?.url.startsWith('sentry://') ? '⚡' : isHttps ? '🔒' : '🌐'}
+          {/* Security / Scheme Icon */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              color: isInternal ? 'var(--accent)' : isHttps ? 'var(--ok)' : 'var(--text-3)',
+              marginRight: '6px',
+              flexShrink: 0,
+            }}
+          >
+            {isInternal ? (
+              <ShieldCheck size={14} />
+            ) : isHttps ? (
+              <Lock size={13} />
+            ) : (
+              <Globe size={13} />
+            )}
           </span>
 
           <input
@@ -193,50 +206,48 @@ export const AddressBar: React.FC<AddressBarProps> = ({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Search with Google or type a URL"
+            placeholder="Search with Google or enter address"
             style={{
-              width: '100%',
+              flexGrow: 1,
+              minWidth: 0,
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#f9fafb',
-              fontSize: '13px',
+              color: 'var(--text)',
+              fontSize: '12px',
               fontFamily: 'inherit',
             }}
           />
 
           {/* Bookmark Star Button */}
-          {activeTab && !activeTab.url.startsWith('sentry://') && (
-            <button
+          {activeTab && !isInternal && (
+            <IconButton
               type="button"
+              label={isBookmarked ? 'Remove bookmark' : 'Bookmark this tab (Ctrl+D)'}
               onClick={() => onToggleBookmark(activeTab.url, activeTab.title)}
               style={{
-                border: 'none',
-                background: 'transparent',
-                color: isBookmarked ? '#f59e0b' : '#6b7280',
-                cursor: 'pointer',
-                fontSize: '14px',
-                marginLeft: '6px',
+                width: '20px',
+                height: '20px',
+                color: isBookmarked ? 'var(--warn)' : 'var(--text-3)',
               }}
-              title={isBookmarked ? 'Remove Bookmark' : 'Bookmark Page (Ctrl+D)'}
             >
-              ★
-            </button>
+              <Star size={13} fill={isBookmarked ? 'var(--warn)' : 'none'} />
+            </IconButton>
           )}
         </div>
 
-        {/* Autocomplete Suggestions Popup */}
-        {isFocused && suggestions.length > 0 && (
+        {/* Suggestions Dropdown */}
+        {showSuggestions && (
           <div
             style={{
               position: 'absolute',
-              top: '38px',
+              top: '34px',
               left: 0,
               right: 0,
-              background: '#1f2937',
-              border: '1px solid #374151',
-              borderRadius: '8px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
+              background: 'var(--bg-1)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.55)',
               zIndex: 9999,
               overflow: 'hidden',
             }}
@@ -249,182 +260,156 @@ export const AddressBar: React.FC<AddressBarProps> = ({
                   setIsFocused(false);
                 }}
                 style={{
-                  padding: '8px 12px',
+                  padding: '7px 12px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   cursor: 'pointer',
-                  fontSize: '13px',
-                  color: '#e5e7eb',
-                  borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid #2d3748',
+                  fontSize: '12px',
+                  color: 'var(--text)',
+                  borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid var(--border)',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#374151')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <span>{s.type === 'bookmark' ? '★' : '🕒'}</span>
-                <span style={{ fontWeight: 600 }}>{s.title}</span>
-                <span style={{ color: '#9ca3af', fontSize: '11px', marginLeft: 'auto' }}>{s.url}</span>
+                <span style={{ color: 'var(--text-3)', display: 'inline-flex' }}>
+                  {s.type === 'bookmark' ? <Star size={12} fill="var(--warn)" color="var(--warn)" /> : <HistoryIcon size={12} />}
+                </span>
+                <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.title}
+                </span>
+                <span style={{ color: 'var(--text-3)', fontSize: '11px', marginLeft: 'auto', flexShrink: 0 }}>
+                  {s.url}
+                </span>
               </div>
             ))}
           </div>
         )}
       </form>
 
-      {/* Internal Page Shortcut Buttons */}
-      <button
-        onClick={() => onOpenPage('trust')}
-        title="Trust & Security Dashboard"
+      {/* Agent Toggle Button */}
+      <Button
+        variant={isSidebarOpen ? 'primary' : 'secondary'}
+        onClick={onToggleSidebar}
+        title="Toggle AI Agent Sidebar (Ctrl+Shift+Space)"
         style={{
-          border: '1px solid #059669',
-          background: 'rgba(5, 150, 105, 0.15)',
-          color: '#10b981',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '11px',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
+          height: 'var(--control-h)',
+          padding: '0 10px',
+          fontWeight: 500,
         }}
+        icon={<Bot size={14} />}
       >
-        🛡️ Trust
-      </button>
+        Agent
+      </Button>
 
-      <button
-        onClick={() => onOpenPage('history')}
-        title="History (Ctrl+H)"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#9ca3af',
-          cursor: 'pointer',
-          fontSize: '13px',
-        }}
-      >
-        🕒
-      </button>
+      {/* Notifications Drawer */}
+      <NotificationCenter
+        notifications={notifications}
+        onDismiss={onDismissNotification}
+        onClearAll={onClearNotifications}
+      />
 
-      <button
-        onClick={() => onOpenPage('bookmarks')}
-        title="Bookmarks"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#9ca3af',
-          cursor: 'pointer',
-          fontSize: '13px',
-        }}
-      >
-        ★
-      </button>
+      {/* More ("⋯") Menu Button */}
+      <div style={{ position: 'relative' }}>
+        <IconButton
+          label="More options"
+          active={isMenuOpen}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          <MoreHorizontal size={16} />
+        </IconButton>
 
-      <button
-        onClick={() => onOpenPage('downloads')}
-        title="Downloads (Ctrl+J)"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#9ca3af',
-          cursor: 'pointer',
-          fontSize: '13px',
-        }}
-      >
-        ⬇
-      </button>
+        <Menu
+          isOpen={isMenuOpen}
+          onClose={() => setIsMenuOpen(false)}
+          top="34px"
+          right={0}
+          width={220}
+        >
+          <MenuItem
+            icon={<HistoryIcon size={14} />}
+            label="History"
+            shortcut="Ctrl+H"
+            onClick={() => {
+              onOpenPage('history');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<BookmarkIcon size={14} />}
+            label="Bookmarks"
+            shortcut="Ctrl+D"
+            onClick={() => {
+              onOpenPage('bookmarks');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<Download size={14} />}
+            label="Downloads"
+            shortcut="Ctrl+J"
+            onClick={() => {
+              onOpenPage('downloads');
+              setIsMenuOpen(false);
+            }}
+          />
 
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
-        <CloudIndicator 
-          isCloud={routingDecision?.isCloud || false} 
-          provider={routingDecision?.adapter?.providerId || "Ollama"} 
-          model={routingDecision?.adapter?.modelId || "llama3.1:8b"} 
-          estimatedTokens={0} 
-          domain={activeUrl ? (() => { try { return new URL(activeUrl.startsWith('http') ? activeUrl : 'http://localhost').hostname; } catch { return 'localhost'; } })() : 'localhost'} 
-        />
-        <CostMeter 
-          currentTaskCost={routingDecision?.estimatedCost || 0.00} 
-          currentTaskTokens={0} 
-          todayCost={0.12} 
-          todayTokens={48200} 
-          monthCost={1.47} 
-          monthTokens={587000} 
-          budget={5.00} 
-        />
+          <MenuDivider />
+
+          <MenuItem
+            icon={<Puzzle size={14} />}
+            label="Extensions"
+            onClick={() => {
+              onOpenPage('extensions');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<FileText size={14} />}
+            label="Recipes"
+            onClick={() => {
+              onOpenPage('recipes');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<ShieldCheck size={14} />}
+            label="Trust & Security"
+            onClick={() => {
+              onOpenPage('trust');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<Cpu size={14} />}
+            label="AI Models"
+            onClick={() => {
+              onOpenPage('models');
+              setIsMenuOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={<Terminal size={14} />}
+            label="Developer Mode"
+            onClick={() => {
+              onOpenPage('developer');
+              setIsMenuOpen(false);
+            }}
+          />
+
+          <MenuDivider />
+
+          <MenuItem
+            icon={<SettingsIcon size={14} />}
+            label="Settings"
+            shortcut="Ctrl+,"
+            onClick={() => {
+              onOpenPage('settings');
+              setIsMenuOpen(false);
+            }}
+          />
+        </Menu>
       </div>
-
-      <button
-        onClick={() => onOpenPage('settings')}
-        title="Settings (Ctrl+,)"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#9ca3af',
-          cursor: 'pointer',
-          fontSize: '13px',
-        }}
-      >
-        ⚙
-      </button>
-
-      <button
-        onClick={() => onOpenPage('recipes')}
-        title="My Recipes"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#a6e3a1',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 'bold'
-        }}
-      >
-        📋
-      </button>
-
-      <button
-        onClick={() => onOpenPage('models')}
-        title="AI Models"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#cba6f7',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 'bold'
-        }}
-      >
-        🧠
-      </button>
-
-      <button
-        onClick={() => onOpenPage('developer')}
-        title="Developer / Research Mode"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#38bdf8',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 'bold'
-        }}
-      >
-        🔧
-      </button>
-
-      <button
-        onClick={() => onOpenPage('extensions')}
-        title="Extensions"
-        style={{
-          border: 'none',
-          background: 'transparent',
-          color: '#fbbf24',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 'bold'
-        }}
-      >
-        🧩
-      </button>
     </div>
   );
 };
