@@ -1,5 +1,10 @@
 import React from 'react';
+import { File, Folder, ExternalLink } from 'lucide-react';
 import { DownloadItem } from '../../shared/types';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 interface DownloadsProps {
   downloads: DownloadItem[];
@@ -9,47 +14,64 @@ interface DownloadsProps {
 
 export const Downloads: React.FC<DownloadsProps> = ({ downloads, onOpenFile, onOpenFolder }) => {
   return (
-    <div style={{ padding: '2rem 4rem', color: '#f8fafc', maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Downloads</h1>
+    <PageShell
+      title="Downloads"
+      description="View and manage downloaded files."
+    >
+      {downloads.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '32px', color: 'var(--text-3)' }}>
+          No downloaded files found in this session.
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {downloads.map((dl) => (
+            <Card
+              key={dl.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                padding: '12px 14px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <File size={15} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text)' }}>
+                    {dl.filename}
+                  </span>
+                </div>
+                <Badge variant={dl.state === 'completed' ? 'ok' : 'neutral'}>
+                  {dl.state}
+                </Badge>
+              </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {downloads.map((dl) => (
-          <div
-            key={dl.id}
-            style={{
-              padding: '16px',
-              background: '#1e293b',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.05)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontWeight: 600 }}>{dl.filename}</span>
-              <span style={{ fontSize: '0.8rem', color: '#60a5fa' }}>{dl.state}</span>
-            </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {dl.url}
+              </div>
 
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '8px' }}>{dl.url}</div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => onOpenFile(dl.savePath)}
-                style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                Open File
-              </button>
-              <button
-                onClick={() => onOpenFolder(dl.savePath)}
-                style={{ background: '#475569', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                Show in Folder
-              </button>
-            </div>
-          </div>
-        ))}
-        {downloads.length === 0 && (
-          <p style={{ color: '#64748b', textAlign: 'center' }}>No downloads recorded.</p>
-        )}
-      </div>
-    </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onOpenFile(dl.savePath)}
+                  icon={<ExternalLink size={12} />}
+                >
+                  Open file
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onOpenFolder(dl.savePath)}
+                  icon={<Folder size={12} />}
+                >
+                  Show in folder
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 };
