@@ -127,7 +127,7 @@ export class ActionExecutor {
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
         (() => {
-          const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+          const el = document.querySelector(${JSON.stringify(selector)});
           if (!el) return false;
           el.scrollIntoView({block: 'center', inline: 'center'});
           el.click();
@@ -150,7 +150,7 @@ export class ActionExecutor {
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
         (() => {
-          const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+          const el = document.querySelector(${JSON.stringify(selector)});
           if (!el) return false;
           el.focus();
           return true;
@@ -181,7 +181,7 @@ export class ActionExecutor {
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
         (() => {
-          const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+          const el = document.querySelector(${JSON.stringify(selector)});
           if (!el) return false;
           if ('value' in el) el.value = '';
           el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -205,9 +205,9 @@ export class ActionExecutor {
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
         (() => {
-          const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+          const el = document.querySelector(${JSON.stringify(selector)});
           if (!el || el.tagName !== 'SELECT') return false;
-          el.value = '${value.replace(/'/g, "\\'")}';
+          el.value = ${JSON.stringify(value)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
           return true;
         })();
@@ -252,7 +252,7 @@ export class ActionExecutor {
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('sentry://')) {
       targetUrl = 'https://' + targetUrl;
     }
-    await this.doEval(tabId, `window.location.href = '${targetUrl.replace(/'/g, "\\'")}'`);
+    await this.doEval(tabId, `window.location.href = ${JSON.stringify(targetUrl)}`);
     return true;
   }
 
@@ -261,12 +261,13 @@ export class ActionExecutor {
 
     const start = Date.now();
     while (Date.now() - start < timeout) {
-      const res = await this.doEval(tabId, `!!document.querySelector('${selector.replace(/'/g, "\\'")}')`);
+      const res = await this.doEval(tabId, `!!document.querySelector(${JSON.stringify(selector)})`);
       if (res) return true;
       await new Promise(r => setTimeout(r, 200));
     }
     throw new Error(`Timeout waiting for selector: ${selector}`);
   }
+
 
   private async doEval(tabId: string, expression: string): Promise<boolean> {
     const res = await this.cdp.send<{ result: { value?: boolean } }>(tabId, 'Runtime.evaluate', {
