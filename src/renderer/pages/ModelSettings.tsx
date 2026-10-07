@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import './ModelSettings.css';
+import { Cpu, Check } from 'lucide-react';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 export const ModelSettings: React.FC = () => {
   const [routingMode, setRoutingMode] = useState('auto');
@@ -11,7 +15,6 @@ export const ModelSettings: React.FC = () => {
 
   useEffect(() => {
     const sentry = (window as any).sentry;
-    // Load current config
     sentry?.agent?.getModelConfig?.().then((cfg: any) => {
       if (cfg) {
         setRoutingMode(cfg.routingMode || 'auto');
@@ -19,9 +22,7 @@ export const ModelSettings: React.FC = () => {
         setCloudModel(cfg.cloudModel || 'gpt-4o');
       }
     });
-    // Check Ollama availability
     sentry?.agent?.checkOllama?.().then((ok: boolean) => setOllamaOnline(ok));
-    // List available models
     sentry?.agent?.listOllamaModels?.().then((models: string[]) => setOllamaModels(models || []));
   }, []);
 
@@ -29,111 +30,151 @@ export const ModelSettings: React.FC = () => {
     const sentry = (window as any).sentry;
     await sentry?.agent?.setModelConfig?.({ localModel, cloudModel, routingMode });
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
   };
 
-  return (
-    <div className="model-settings-page">
-      <div className="settings-header">
-        <h1>⚙️ AI Model Settings</h1>
-      </div>
-      
-      <div className="settings-content">
-        <section className="settings-section">
-          <h2>Routing Mode</h2>
-          <div className="radio-group">
-            {[
-              { value: 'local_only', label: 'Local only', desc: 'All processing stays on your device. High privacy, lower capability for complex tasks.' },
-              { value: 'cloud_only', label: 'Cloud only', desc: 'Uses your API key for all tasks. Costs money, highest capability.' },
-              { value: 'auto', label: 'Auto (Recommended)', desc: 'Routes by task complexity. Uses local for simple tasks, cloud for complex tasks.' },
-              { value: 'prefer_local', label: 'Prefer local', desc: 'Cloud only used when absolutely necessary or local is unavailable.' },
-            ].map(opt => (
-              <label className="radio-label" key={opt.value}>
-                <input type="radio" name="routing" value={opt.value} checked={routingMode === opt.value} onChange={e => setRoutingMode(e.target.value)} />
-                <div className="radio-text">
-                  <strong>{opt.label}</strong>
-                  <span>{opt.desc}</span>
-                </div>
-              </label>
-            ))}
-          </div>
-        </section>
+  const routingOptions = [
+    { value: 'auto', label: 'Auto (Recommended)', desc: 'Routes by task complexity. Uses local for simple DOM actions and cloud for multi-step reasoning.' },
+    { value: 'local_only', label: 'Local only', desc: 'All processing stays on your device via Ollama. Maximum privacy, zero API costs.' },
+    { value: 'prefer_local', label: 'Prefer local', desc: 'Uses local Ollama by default, only failing over to cloud if the local model stalls.' },
+    { value: 'cloud_only', label: 'Cloud only', desc: 'Routes all prompts to frontier models (OpenAI/Anthropic) using your API keys.' },
+  ];
 
-        <section className="settings-section">
-          <h2>Local Model (Ollama)</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: ollamaOnline ? '#4ade80' : ollamaOnline === false ? '#f87171' : '#9ca3af' }}>
-              {ollamaOnline === null ? '⏳ Checking…' : ollamaOnline ? '🟢 Ollama Online' : '🔴 Ollama Offline — Install from ollama.com'}
-            </span>
+  return (
+    <PageShell
+      title="AI Models"
+      description="Configure model routing between local on-device LLMs and cloud providers."
+      headerActions={
+        <Button variant="primary" size="sm" onClick={handleSave} icon={saved ? <Check size={13} /> : undefined}>
+          {saved ? 'Saved' : 'Save changes'}
+        </Button>
+      }
+    >
+      {/* Routing Mode */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Routing mode
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {routingOptions.map((opt) => (
+            <label
+              key={opt.value}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-sm)',
+                background: routingMode === opt.value ? 'var(--bg-3)' : 'var(--bg-1)',
+                border: `1px solid ${routingMode === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                cursor: 'pointer',
+                transition: 'background 0.1s ease, border-color 0.1s ease',
+              }}
+            >
+              <input
+                type="radio"
+                name="routing"
+                value={opt.value}
+                checked={routingMode === opt.value}
+                onChange={(e) => setRoutingMode(e.target.value)}
+                style={{ marginTop: '2px', accentColor: 'var(--accent)' }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+                  {opt.label}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.4 }}>
+                  {opt.desc}
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </Card>
+
+      {/* Local Model (Ollama) */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+              Local model (Ollama)
+            </h2>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+              Connects to your local Ollama daemon on localhost:11434.
+            </p>
           </div>
-          {ollamaModels.length > 0 ? (
-            <div className="model-list">
-              {ollamaModels.map(m => (
-                <div className="model-item" key={m}>
-                  <span className="model-name">{m}</span>
-                  <span className={`model-status ${localModel === m ? 'installed' : ''}`}>
-                    {localModel === m ? '✅ Active' : ''}
-                  </span>
-                  <div className="model-actions">
-                    <button className="btn-secondary" onClick={() => setLocalModel(m)}>Use This</button>
-                  </div>
-                </div>
+          <Badge variant={ollamaOnline ? 'ok' : ollamaOnline === false ? 'danger' : 'neutral'} dot>
+            {ollamaOnline === null ? 'Checking…' : ollamaOnline ? 'Online' : 'Offline'}
+          </Badge>
+        </div>
+
+        {ollamaModels.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Installed models:</span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {ollamaModels.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setLocalModel(m)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '11px',
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    background: localModel === m ? 'var(--accent-bg)' : 'var(--bg-1)',
+                    color: localModel === m ? 'var(--accent)' : 'var(--text-2)',
+                    border: `1px solid ${localModel === m ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {m}
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="model-list">
-              <div className="model-item">
-                <span className="model-name">{localModel}</span>
-                <span className="model-status installed">{ollamaOnline ? '✅ Active' : '(offline)'}</span>
-              </div>
-            </div>
-          )}
-          <div style={{ marginTop: '8px' }}>
-            <label style={{ fontSize: '13px', color: '#9ca3af', marginRight: '8px' }}>Local Model ID:</label>
-            <input
-              type="text"
-              value={localModel}
-              onChange={e => setLocalModel(e.target.value)}
-              style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #374151', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', width: '200px' }}
-              placeholder="e.g. llama3.1:8b"
-            />
           </div>
-        </section>
+        ) : (
+          <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+            No Ollama models detected. Run <code style={{ color: 'var(--accent)' }}>ollama pull llama3.1:8b</code> in your terminal.
+          </p>
+        )}
+      </Card>
 
-        <section className="settings-section">
-          <h2>Cloud Provider</h2>
-          <div className="provider-list">
-            <div className="provider-item active">
-              <div className="provider-info">
-                <strong>OpenAI / Anthropic</strong>
-                <span className="api-key">Set via OPENAI_API_KEY or ANTHROPIC_API_KEY environment variables</span>
-              </div>
-            </div>
+      {/* Cloud Model */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Cloud fallback model
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Provider model
+            </span>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Frontier model used when cloud execution is required.
+            </p>
           </div>
-          <div style={{ marginTop: '8px' }}>
-            <label style={{ fontSize: '13px', color: '#9ca3af', marginRight: '8px' }}>Cloud Model:</label>
-            <input
-              type="text"
-              value={cloudModel}
-              onChange={e => setCloudModel(e.target.value)}
-              style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #374151', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', width: '200px' }}
-              placeholder="e.g. gpt-4o"
-            />
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <h2>Per-Site Privacy</h2>
-          <p className="section-desc">Sites that will ALWAYS use the local model. Configure in <strong>Trust Dashboard</strong> by setting a site to "Highly Restricted".</p>
-        </section>
-
-        <div style={{ marginTop: '24px' }}>
-          <button className="btn-primary" onClick={handleSave} style={{ background: saved ? '#4ade80' : undefined, color: saved ? '#0f172a' : undefined }}>
-            {saved ? '✅ Saved!' : '💾 Save Model Settings'}
-          </button>
+          <select
+            value={cloudModel}
+            onChange={(e) => setCloudModel(e.target.value)}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+          >
+            <option value="gpt-4o">OpenAI gpt-4o</option>
+            <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+            <option value="claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
+            <option value="claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
+          </select>
         </div>
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 };
-
