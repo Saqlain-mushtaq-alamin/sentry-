@@ -1,37 +1,85 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --bg-main: #0b0f19;
-  --bg-header: #111827;
-  --bg-card: #1f2937;
-  --bg-hover: #374151;
-  --bg-active: #2563eb;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-color: #1f2937;
-  --accent: #3b82f6;
-  --accent-glow: rgba(59, 130, 246, 0.4);
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Neutral scale (one gray family only) */
+  --bg-0: #0e0f11;   /* window chrome / tab strip */
+  --bg-1: #16181c;   /* toolbar, panels */
+  --bg-2: #1d2025;   /* inputs, cards */
+  --bg-3: #262a30;   /* hover */
+  --border: #2a2e35;
+  --text: #e6e8eb;
+  --text-2: #9aa0a9;
+  --text-3: #6b7280;
+
+  /* ONE accent */
+  --accent: #4c8dff;
+  --accent-hover: #6aa0ff;
+  --accent-bg: rgba(76, 141, 255, 0.12);
+
+  /* Status colors: muted, used only for meaning */
+  --ok: #3fb27f;
+  --ok-bg: rgba(63, 178, 127, 0.12);
+  --warn: #d6a243;
+  --warn-bg: rgba(214, 162, 67, 0.12);
+  --danger: #e5484d;
+  --danger-bg: rgba(229, 72, 77, 0.12);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --control-h: 28px;
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Backwards compatibility aliases for existing stylesheets */
+  --bg-main: var(--bg-0);
+  --bg-header: var(--bg-1);
+  --bg-card: var(--bg-2);
+  --bg-surface: var(--bg-2);
+  --bg-hover: var(--bg-3);
+  --border-color: var(--border);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-2);
+  --accent-glow: rgba(76, 141, 255, 0.2);
+  --success: var(--ok);
+  --warning: var(--warn);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-body {
+html, body {
+  height: 100%;
+  width: 100%;
   font-family: var(--font);
-  background-color: var(--bg-main);
-  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: var(--bg-0);
+  color: var(--text);
   overflow: hidden;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbars */
+/* Accessibility focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -40,16 +88,163 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--border);
 }
 
-/* Glassmorphism utility */
-.glass {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Clean Icon Button Utility */
+.icon-btn {
+  flex-shrink: 0;
+  width: var(--control-h);
+  height: var(--control-h);
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+.icon-btn:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Reusable UI Utility Classes */
+.btn-primary {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  transition: background 0.12s ease;
+  flex-shrink: 0;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  transition: background 0.12s ease, border-color 0.12s ease;
+  flex-shrink: 0;
+}
+.btn-secondary:hover {
+  background: var(--bg-3);
+  border-color: var(--text-3);
+}
+
+.btn-danger {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid rgba(229, 72, 77, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  transition: background 0.12s ease;
+  flex-shrink: 0;
+}
+.btn-danger:hover {
+  background: rgba(229, 72, 77, 0.2);
+}
+
+/* Flat Card Utility */
+.flat-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+/* Status Dot Utility */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot.ok { background: var(--ok); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.danger { background: var(--danger); }
+.status-dot.accent { background: var(--accent); }
+.status-dot.neutral { background: var(--text-3); }
+
+/* Small Sentence-Case Tinted Badges */
+.badge-tint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.badge-tint.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.badge-tint.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.badge-tint.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge-tint.accent {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.badge-tint.neutral {
+  background: var(--bg-3);
+  color: var(--text-2);
 }
