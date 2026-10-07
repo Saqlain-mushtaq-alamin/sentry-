@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Search, Globe } from 'lucide-react';
 import { HistoryItem } from '../../shared/types';
+import { Card } from '../components/ui/Card';
 
 interface NewTabProps {
   history: HistoryItem[];
@@ -27,28 +29,26 @@ export const NewTab: React.FC<NewTabProps> = ({ history, onNavigate }) => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(circle at top, #1e293b 0%, #0f172a 100%)',
-        color: '#f8fafc',
-        fontFamily: 'system-ui, sans-serif',
-        padding: '2rem',
+        background: 'var(--bg-0)',
+        color: 'var(--text)',
+        fontFamily: 'inherit',
+        padding: '24px',
       }}
     >
       {/* Title */}
       <h1
         style={{
-          fontSize: '3.5rem',
-          fontWeight: 800,
-          background: 'linear-gradient(135deg, #60a5fa 0%, #a855f7 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          marginBottom: '0.5rem',
-          letterSpacing: '-0.03em',
+          fontSize: '24px',
+          fontWeight: 600,
+          color: 'var(--text)',
+          marginBottom: '4px',
+          letterSpacing: '-0.02em',
         }}
       >
-        Sentry Browser
+        Sentry
       </h1>
-      <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '2.5rem' }}>
-        Private, Fast, Agentic Web Browsing
+      <p style={{ color: 'var(--text-3)', fontSize: '13px', marginBottom: '28px' }}>
+        Agentic browser
       </p>
 
       {/* Centered Search Bar */}
@@ -56,51 +56,51 @@ export const NewTab: React.FC<NewTabProps> = ({ history, onNavigate }) => {
         onSubmit={handleSearch}
         style={{
           width: '100%',
-          maxWidth: '640px',
-          marginBottom: '3rem',
+          maxWidth: '560px',
+          marginBottom: '32px',
         }}
       >
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(30, 41, 59, 0.8)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '9999px',
-            padding: '12px 24px',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-            transition: 'all 0.2s ease',
+            background: 'var(--bg-1)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            transition: 'border-color 0.15s ease',
           }}
         >
-          <span style={{ fontSize: '1.2rem', marginRight: '12px', color: '#94a3b8' }}>🔍</span>
+          <Search size={16} style={{ color: 'var(--text-3)', marginRight: '10px', flexShrink: 0 }} />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search the web or type a URL..."
+            placeholder="Search with Google or enter web address…"
             style={{
               width: '100%',
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#f8fafc',
-              fontSize: '1.1rem',
+              color: 'var(--text)',
+              fontSize: '13px',
+              fontFamily: 'inherit',
             }}
+            autoFocus
           />
         </div>
       </form>
 
       {/* Quick Access Tiles */}
-      <div style={{ width: '100%', maxWidth: '640px' }}>
-        <h3 style={{ fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-          Quick Access
-        </h3>
+      <div style={{ width: '100%', maxWidth: '560px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: 500 }}>
+          Frequently visited
+        </div>
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1rem',
+            gap: '8px',
           }}
         >
           {(topSites.length > 0
@@ -111,52 +111,44 @@ export const NewTab: React.FC<NewTabProps> = ({ history, onNavigate }) => {
                 { id: '3', title: 'Wikipedia', url: 'https://wikipedia.org' },
               ]
           ).map((item) => (
-            <div
+            <Card
               key={item.id}
               onClick={() => onNavigate(item.url)}
               style={{
-                background: 'rgba(30, 41, 59, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                borderRadius: '12px',
-                padding: '1rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: '10px',
+                padding: '10px 12px',
                 cursor: 'pointer',
-                transition: 'transform 0.15s ease, background 0.15s ease',
+                transition: 'background 0.12s ease',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(51, 65, 85, 0.8)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(30, 41, 59, 0.6)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-2)')}
             >
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: '#3b82f6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-1)',
+                  border: '1px solid var(--border)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--text-2)',
+                  flexShrink: 0,
                 }}
               >
-                {item.title[0]}
+                <Globe size={14} />
               </div>
               <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontWeight: 600, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.title}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '10px', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.url}
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
