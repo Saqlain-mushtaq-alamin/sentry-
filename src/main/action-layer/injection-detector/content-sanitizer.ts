@@ -17,7 +17,7 @@ export class ContentSanitizer {
         // Strip out the injected source text
         // In reality, we just replace it in the visibleText
         if (sanitizedText.includes(detection.sourceText)) {
-          sanitizedText = sanitizedText.replace(detection.sourceText, '[REDACTED_PROMPT_INJECTION]');
+          sanitizedText = sanitizedText.replaceAll(detection.sourceText, '[REDACTED_PROMPT_INJECTION]');
           wasSanitized = true;
           
           if (detection.sourceLocation === 'hidden-element') sanitizationDetails.removedHiddenElements++;
