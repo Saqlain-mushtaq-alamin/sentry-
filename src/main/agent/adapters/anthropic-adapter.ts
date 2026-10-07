@@ -9,7 +9,9 @@ import { ModelAdapter } from '../model-adapter';
 import { ChatRequest, ChatResponse } from '../../../shared/types';
 
 const PRICING: Record<string, { input: number; output: number }> = {
-  'claude-sonnet-4-20250514': { input: 0.000003,  output: 0.000015  },
+  'claude-sonnet-5-5':        { input: 0.000003,   output: 0.000015  },
+  'claude-haiku-5-5':         { input: 0.00000025, output: 0.00000125 },
+  'claude-sonnet-4-20250514': { input: 0.000003,   output: 0.000015  },
   'claude-haiku-3-20240307':  { input: 0.00000025, output: 0.00000125 },
   'claude-opus-4-20250514':   { input: 0.000015,   output: 0.000075  },
 };
@@ -22,7 +24,7 @@ export class AnthropicAdapter implements ModelAdapter {
 
   constructor(
     apiKey: string,
-    modelId = 'claude-sonnet-4-20250514',
+    modelId = 'claude-sonnet-5-5',
     baseUrl = 'https://api.anthropic.com/v1',
   ) {
     this.apiKey = apiKey;
