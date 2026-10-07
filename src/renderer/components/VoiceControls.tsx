@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Mic, MicOff } from 'lucide-react';
 import './VoiceControls.css';
 
 interface VoiceControlsProps {
@@ -8,7 +9,7 @@ interface VoiceControlsProps {
 
 export const VoiceControls: React.FC<VoiceControlsProps> = ({
   onTranscriptReceived,
-  onListeningStateChange
+  onListeningStateChange,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -42,18 +43,14 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
           recognition.onerror = (event: any) => {
             console.warn('[VoiceControls] Speech recognition error:', event.error);
             if (event.error === 'network' || event.error === 'not-allowed' || event.error === 'no-speech') {
-              setTranscript('Speech API limited in Electron environment. Type or use simulated voice command below:');
+              setTranscript('Speech input unavailable or permission denied.');
             }
-          };
-
-          recognition.onend = () => {
-            // If ended without final result, keep transcript or reset
           };
 
           recognition.start();
         } catch (err) {
           console.error('[VoiceControls] Failed to start speech recognition:', err);
-          setTranscript('Speech API unavailable. Enter voice transcript manually below:');
+          setTranscript('Speech recognition initialization failed.');
         }
       } else {
         setTranscript('Web Speech API not supported in this environment.');
@@ -65,38 +62,24 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
 
   return (
     <div className="voice-controls" role="region" aria-label="Voice Controls">
-      <button 
+      <button
+        type="button"
         className={`voice-btn ${isListening ? 'listening' : ''}`}
         onClick={toggleListening}
-        aria-label={isListening ? "Stop voice input" : "Start voice input"}
-        aria-pressed={isListening}
+        title={isListening ? 'Stop voice input' : 'Voice input'}
+        aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
       >
-        🎤
+        {isListening ? <MicOff size={13} /> : <Mic size={13} />}
       </button>
 
       {isListening && (
         <div className="voice-transcript-overlay" role="status" aria-live="polite">
           <div className="transcript-box">
-            <span className="listening-indicator">🎤 Listening...</span>
+            <span className="listening-indicator">Listening…</span>
             <p className="transcript-text">{transcript}</p>
-            <div className="preset-voice-chips">
-              <span className="preset-label">Test Voice Samples:</span>
-              <button onClick={() => {
-                const sample = "Find the cheapest flight from New York to London";
-                setTranscript(sample);
-                if (onTranscriptReceived) onTranscriptReceived(sample);
-                setIsListening(false);
-              }}>✈ Flight search</button>
-              <button onClick={() => {
-                const sample = "Compare prices on Amazon and eBay";
-                setTranscript(sample);
-                if (onTranscriptReceived) onTranscriptReceived(sample);
-                setIsListening(false);
-              }}>🔍 Price comparison</button>
-            </div>
             <div className="controls-row">
-              <button onClick={toggleListening} aria-label="Stop listening">Stop</button>
-              <button onClick={() => { setIsListening(false); setTranscript(''); }} aria-label="Cancel voice input">Cancel</button>
+              <button onClick={toggleListening} className="voice-action-btn">Stop</button>
+              <button onClick={() => { setIsListening(false); setTranscript(''); }} className="voice-action-btn">Cancel</button>
             </div>
           </div>
         </div>
