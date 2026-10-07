@@ -1,5 +1,9 @@
 import React from 'react';
+import { Star, Trash2 } from 'lucide-react';
 import { BookmarkItem } from '../../shared/types';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { IconButton } from '../components/ui/IconButton';
 
 interface BookmarksProps {
   bookmarks: BookmarkItem[];
@@ -9,39 +13,52 @@ interface BookmarksProps {
 
 export const Bookmarks: React.FC<BookmarksProps> = ({ bookmarks, onNavigate, onRemoveBookmark }) => {
   return (
-    <div style={{ padding: '2rem 4rem', color: '#f8fafc', maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Bookmarks Manager</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-        {bookmarks.map((bm) => (
-          <div
-            key={bm.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              background: '#1e293b',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.05)',
-            }}
-          >
-            <div onClick={() => onNavigate(bm.url)} style={{ cursor: 'pointer', overflow: 'hidden' }}>
-              <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>★ {bm.title}</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{bm.url}</div>
-            </div>
-            <button
-              onClick={() => onRemoveBookmark(bm.id)}
-              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+    <PageShell
+      title="Bookmarks"
+      description="Manage and open your saved pages."
+    >
+      {bookmarks.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '32px', color: 'var(--text-3)' }}>
+          No bookmarks saved yet. Use the star icon in the address bar or press Ctrl+D.
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {bookmarks.map((bm) => (
+            <Card
+              key={bm.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+              }}
             >
-              ✕
-            </button>
-          </div>
-        ))}
-        {bookmarks.length === 0 && (
-          <p style={{ color: '#64748b', gridColumn: 'span 2', textAlign: 'center' }}>No bookmarks saved yet.</p>
-        )}
-      </div>
-    </div>
+              <div
+                onClick={() => onNavigate(bm.url)}
+                style={{ cursor: 'pointer', overflow: 'hidden', flex: 1 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Star size={13} fill="var(--warn)" color="var(--warn)" />
+                  <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text)' }}>
+                    {bm.title || 'Untitled bookmark'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {bm.url}
+                </div>
+              </div>
+
+              <IconButton
+                label="Remove bookmark"
+                onClick={() => onRemoveBookmark(bm.id)}
+                style={{ color: 'var(--text-3)' }}
+              >
+                <Trash2 size={13} />
+              </IconButton>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 };
