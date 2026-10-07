@@ -33,6 +33,12 @@ export class AuditLog {
     return [...this.entries];
   }
 
+  public clear(): void {
+    this.entries = [];
+    this.persist();
+  }
+
+
   private persist(): void {
     if (this.logFilePath) {
       try {
