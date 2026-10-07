@@ -9,10 +9,12 @@ import { ModelAdapter } from '../model-adapter';
 import { ChatRequest, ChatResponse } from '../../../shared/types';
 
 const PRICING: Record<string, { input: number; output: number }> = {
-  'gpt-4o':       { input: 0.000005, output: 0.000015 },
-  'gpt-4-turbo':  { input: 0.00001,  output: 0.00003  },
-  'gpt-3.5-turbo':{ input: 0.0000005, output: 0.0000015 },
+  'gpt-4o':       { input: 0.000005,   output: 0.000015  },
+  'gpt-4o-mini':  { input: 0.00000015, output: 0.0000006 },
+  'gpt-4-turbo':  { input: 0.00001,    output: 0.00003   },
+  'gpt-3.5-turbo':{ input: 0.0000005,  output: 0.0000015 },
 };
+
 
 export class OpenAIAdapter implements ModelAdapter {
   readonly providerId = 'openai';
