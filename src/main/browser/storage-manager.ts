@@ -3,11 +3,24 @@ import path from 'path';
 import { app } from 'electron';
 import { BookmarkItem, HistoryItem, DownloadItem, UserSettings } from '../../shared/types';
 
+export interface ModelConfig {
+  localModel: string;
+  cloudModel: string;
+  routingMode: 'auto' | 'local_only' | 'prefer_local' | 'cloud_only';
+}
+
+export const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  localModel: 'llama3.1:8b',
+  cloudModel: 'gpt-4o',
+  routingMode: 'auto',
+};
+
 interface StoreData {
   bookmarks: BookmarkItem[];
   history: HistoryItem[];
   downloads: DownloadItem[];
   settings: UserSettings;
+  modelConfig: ModelConfig;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -17,6 +30,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   showBookmarksBar: true,
   defaultDownloadPath: '',
   askDownloadPath: false,
+  voiceOutputEnabled: false,
 };
 
 export class StorageManager {
@@ -24,7 +38,12 @@ export class StorageManager {
   private data: StoreData;
 
   constructor() {
-    const userDataPath = app.getPath('userData');
+    let userDataPath = '';
+    try {
+      userDataPath = app.getPath('userData');
+    } catch {
+      userDataPath = process.cwd();
+    }
     this.filePath = path.join(userDataPath, 'sentry-store.json');
     this.data = this.loadData();
   }
@@ -39,6 +58,7 @@ export class StorageManager {
           history: parsed.history || [],
           downloads: parsed.downloads || [],
           settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
+          modelConfig: { ...DEFAULT_MODEL_CONFIG, ...(parsed.modelConfig || {}) },
         };
       }
     } catch (err) {
@@ -53,6 +73,7 @@ export class StorageManager {
       history: [],
       downloads: [],
       settings: DEFAULT_SETTINGS,
+      modelConfig: DEFAULT_MODEL_CONFIG,
     };
   }
 
@@ -166,4 +187,30 @@ export class StorageManager {
     this.saveData();
     return this.data.settings;
   }
+
+  // Model Configuration
+  public getModelConfig(): ModelConfig {
+    return this.data.modelConfig;
+  }
+
+  public updateModelConfig(cfg: Partial<ModelConfig>): ModelConfig {
+    this.data.modelConfig = { ...this.data.modelConfig, ...cfg };
+    this.saveData();
+    return this.data.modelConfig;
+  }
+
+  // Site Forgetting
+  public forgetSite(domainOrUrl: string): void {
+    const clean = domainOrUrl.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+    this.data.history = this.data.history.filter((h) => {
+      try {
+        const itemDomain = new URL(h.url).hostname.toLowerCase();
+        return !itemDomain.includes(clean);
+      } catch {
+        return !h.url.toLowerCase().includes(clean);
+      }
+    });
+    this.saveData();
+  }
 }
+
