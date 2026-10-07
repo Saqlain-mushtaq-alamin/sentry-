@@ -37,7 +37,7 @@ export class ActionExecutor {
       } catch {
         // Ignored — page may be internal sentry:// or currently navigating
       }
-      
+
       let selector: string | undefined;
       if (action.target) {
         const indexMatch = action.target.trim().match(/^\[?(\d+)\]?$/);
@@ -122,7 +122,7 @@ export class ActionExecutor {
 
   private async doClick(tabId: string, selector?: string): Promise<boolean> {
     if (!selector) throw new Error('Click requires a target selector');
-    
+
     // Evaluate click directly in page context for reliability
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
@@ -136,7 +136,7 @@ export class ActionExecutor {
       `,
       returnByValue: true
     });
-    
+
     if (res?.result?.value !== true) {
       throw new Error(`Element not found or not clickable: ${selector}`);
     }
@@ -177,7 +177,7 @@ export class ActionExecutor {
 
   private async doClear(tabId: string, selector?: string): Promise<boolean> {
     if (!selector) throw new Error('Clear requires a target selector');
-    
+
     const res = await this.cdp.send<{ result: { type: string; value?: boolean } }>(tabId, 'Runtime.evaluate', {
       expression: `
         (() => {
@@ -191,7 +191,7 @@ export class ActionExecutor {
       `,
       returnByValue: true
     });
-    
+
     if (res?.result?.value !== true) {
       throw new Error(`Element not found or not clearable: ${selector}`);
     }
@@ -214,7 +214,7 @@ export class ActionExecutor {
       `,
       returnByValue: true
     });
-    
+
     if (res?.result?.value !== true) {
       throw new Error(`Select element not found: ${selector}`);
     }
@@ -224,7 +224,7 @@ export class ActionExecutor {
   private async doScroll(tabId: string, direction?: 'up' | 'down' | 'left' | 'right', amount: number = 300): Promise<boolean> {
     const x = direction === 'left' ? -amount : direction === 'right' ? amount : 0;
     const y = direction === 'up' ? -amount : direction === 'down' ? amount : (direction ? 0 : amount); // default down
-    
+
     await this.doEval(tabId, `window.scrollBy({ left: ${x}, top: ${y}, behavior: 'smooth' })`);
     await new Promise(r => setTimeout(r, 500)); // wait for smooth scroll
     return true;
@@ -242,7 +242,7 @@ export class ActionExecutor {
       type: 'mouseMoved',
       x, y
     });
-    
+
     return true;
   }
 
@@ -258,7 +258,7 @@ export class ActionExecutor {
 
   private async doWaitFor(tabId: string, selector?: string, timeout: number = 5000): Promise<boolean> {
     if (!selector) return true; // nothing to wait for
-    
+
     const start = Date.now();
     while (Date.now() - start < timeout) {
       const res = await this.doEval(tabId, `!!document.querySelector('${selector.replace(/'/g, "\\'")}')`);
