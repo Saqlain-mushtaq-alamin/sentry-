@@ -22,6 +22,8 @@ export class TabManager {
     bottomOffset: 38, // Reserve space for the agent command bar dock
     rightOffset: 0,
   };
+  private contentBounds: { x: number; y: number; width: number; height: number } | null = null;
+  private isViewHidden = false;
   private isNavigatingHistory = false;
 
   constructor(window: BrowserWindow, storage: StorageManager) {
@@ -31,6 +33,34 @@ export class TabManager {
     this.window.on('resize', () => {
       this.updateActiveViewBounds();
     });
+  }
+
+  public setContentBounds(bounds: { x: number; y: number; width: number; height: number }): void {
+    this.contentBounds = bounds;
+    this.updateActiveViewBounds();
+  }
+
+  public setHidden(hidden: boolean): void {
+    this.isViewHidden = hidden;
+    if (!this.activeTabId) return;
+    const activeView = this.views.get(this.activeTabId);
+    const activeTab = this.tabs.get(this.activeTabId);
+    if (!activeView || !activeTab || activeTab.url.startsWith('sentry://')) return;
+
+    if (hidden) {
+      try {
+        this.window.contentView.removeChildView(activeView);
+      } catch {
+        // ignored
+      }
+    } else {
+      try {
+        this.window.contentView.addChildView(activeView);
+      } catch {
+        // ignored
+      }
+      this.updateActiveViewBounds();
+    }
   }
 
   public setLayoutOffsets(offsets: Partial<LayoutOffsets>): void {
@@ -148,12 +178,14 @@ export class TabManager {
     const activeView = this.views.get(id);
 
     if (activeTab && activeView && !activeTab.url.startsWith('sentry://')) {
-      try {
-        this.window.contentView.addChildView(activeView);
-      } catch {
-        // ignored
+      if (!this.isViewHidden) {
+        try {
+          this.window.contentView.addChildView(activeView);
+        } catch {
+          // ignored
+        }
+        this.updateActiveViewBounds();
       }
-      this.updateActiveViewBounds();
     }
 
     this.updateTabNavState(id);
@@ -210,7 +242,7 @@ export class TabManager {
       this.updateTabNavState(id);
       this.notifyTabsUpdated();
     } else {
-      if (id === this.activeTabId) {
+      if (id === this.activeTabId && !this.isViewHidden) {
         try {
           this.window.contentView.addChildView(view);
         } catch {
@@ -305,7 +337,17 @@ export class TabManager {
     const activeTab = this.tabs.get(this.activeTabId);
     const activeView = this.views.get(this.activeTabId);
 
-    if (!activeTab || !activeView || activeTab.url.startsWith('sentry://')) return;
+    if (!activeTab || !activeView || activeTab.url.startsWith('sentry://') || this.isViewHidden) return;
+
+    if (this.contentBounds) {
+      activeView.setBounds({
+        x: Math.round(this.contentBounds.x),
+        y: Math.round(this.contentBounds.y),
+        width: Math.max(0, Math.round(this.contentBounds.width)),
+        height: Math.max(0, Math.round(this.contentBounds.height)),
+      });
+      return;
+    }
 
     const bounds = this.window.getContentBounds();
     const settings = this.storage.getSettings();
