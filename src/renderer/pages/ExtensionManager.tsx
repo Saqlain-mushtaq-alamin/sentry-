@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { Puzzle, FolderOpen, Trash2, Check, AlertCircle } from 'lucide-react';
 import { LoadedExtension } from '../../shared/types';
-import './ExtensionManager.css';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { IconButton } from '../components/ui/IconButton';
 
 export const ExtensionManagerPage: React.FC = () => {
   const [extensions, setExtensions] = useState<LoadedExtension[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [feedback, setFeedback] = useState<{ message: string; type: 'ok' | 'error' } | null>(null);
 
   const fetchExtensions = async () => {
     if ((window as any).sentry?.extensions) {
       const exts = await (window as any).sentry.extensions.getAll();
-      setExtensions(exts);
+      setExtensions(exts || []);
     }
     setLoading(false);
   };
@@ -29,6 +35,8 @@ export const ExtensionManagerPage: React.FC = () => {
     if ((window as any).sentry?.extensions) {
       await (window as any).sentry.extensions.unload(id);
       await fetchExtensions();
+      setFeedback({ message: 'Extension removed.', type: 'ok' });
+      setTimeout(() => setFeedback(null), 3000);
     }
   };
 
@@ -38,71 +46,101 @@ export const ExtensionManagerPage: React.FC = () => {
         const loaded = await (window as any).sentry.extensions.chooseAndLoad();
         if (loaded) {
           await fetchExtensions();
+          setFeedback({ message: `Loaded extension "${loaded.name}".`, type: 'ok' });
+          setTimeout(() => setFeedback(null), 3000);
         }
       } catch (err) {
-        alert('Failed to load extension: ' + String(err));
+        setFeedback({ message: `Failed to load extension: ${String(err)}`, type: 'error' });
+        setTimeout(() => setFeedback(null), 4000);
       }
     }
   };
 
   return (
-    <div className="extension-manager-page">
-      <div className="ext-header">
-        <h1>🧩 Extensions</h1>
-      </div>
-      
-      <div className="ext-actions-bar">
-        <button className="ext-btn ext-btn-primary" onClick={handleLoadUnpacked}>
-          Load Unpacked Extension
-        </button>
-        <button className="ext-btn">
-          Get Extensions (Chrome Store)
-        </button>
-      </div>
+    <PageShell
+      title="Extensions"
+      description="Manage Chrome extensions and background scripts."
+      headerActions={
+        <Button variant="primary" size="sm" onClick={handleLoadUnpacked} icon={<FolderOpen size={12} />}>
+          Load unpacked extension
+        </Button>
+      }
+    >
+      {feedback && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '12px',
+            background: feedback.type === 'ok' ? 'var(--ok-bg)' : 'var(--danger-bg)',
+            color: feedback.type === 'ok' ? 'var(--ok)' : 'var(--danger)',
+            border: `1px solid ${feedback.type === 'ok' ? 'rgba(63, 178, 127, 0.25)' : 'rgba(229, 72, 77, 0.25)'}`,
+          }}
+        >
+          {feedback.type === 'ok' ? <Check size={14} /> : <AlertCircle size={14} />}
+          <span>{feedback.message}</span>
+        </div>
+      )}
 
-      <div className="ext-list">
-        {loading ? (
-          <div>Loading extensions...</div>
-        ) : extensions.length === 0 ? (
-          <div className="ext-empty">No extensions installed.</div>
-        ) : (
-          extensions.map(ext => (
-            <div key={ext.id} className={`ext-card ${ext.isEnabled ? '' : 'ext-disabled'}`}>
-              <div className="ext-card-header">
-                <span className="ext-name">🧩 {ext.name}</span>
-                <span className="ext-version">v{ext.version}</span>
-                <span className={`ext-status ${ext.isEnabled ? 'ext-status-on' : 'ext-status-off'}`}>
-                  [{ext.isEnabled ? 'Enabled' : 'Disabled'}]
-                </span>
+      {loading ? (
+        <Card style={{ textAlign: 'center', color: 'var(--text-3)', padding: '32px' }}>
+          Loading extensions…
+        </Card>
+      ) : extensions.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '32px', color: 'var(--text-3)' }}>
+          <p style={{ fontWeight: 500, color: 'var(--text)' }}>No extensions installed</p>
+          <p style={{ fontSize: '12px', marginTop: '4px' }}>
+            Load an unpacked extension directory (.crx or manifest directory) to get started.
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {extensions.map((ext) => (
+            <Card
+              key={ext.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Puzzle size={16} style={{ color: 'var(--accent)' }} />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text)' }}>
+                      {ext.name}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>v{ext.version}</span>
+                    <Badge variant={ext.isEnabled ? 'ok' : 'neutral'} dot>
+                      {ext.isEnabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-              <div className="ext-card-body">
-                <div className="ext-detail"><strong>Permissions:</strong> {ext.permissions.length > 0 ? ext.permissions.join(', ') : 'None'}</div>
-                <div className="ext-detail"><strong>Path:</strong> {ext.installPath}</div>
-                {ext.permissions.includes('webRequest') && (
-                  <div className="ext-warning">⚠️ Note: Extension intercepts network requests (ad-blocker pattern)</div>
-                )}
-                {ext.name.toLowerCase().includes('password') || ext.name.toLowerCase().includes('bitwarden') || ext.name.toLowerCase().includes('1password') ? (
-                  <div className="ext-warning" style={{color: '#f87171'}}>⚠️ Agent interaction: ALWAYS requires CRITICAL confirmation</div>
-                ) : null}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={ext.isEnabled}
+                    onChange={(e) => handleToggle(ext.id, e.target.checked)}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                  Active
+                </label>
+                <IconButton label="Remove extension" onClick={() => handleRemove(ext.id)}>
+                  <Trash2 size={13} />
+                </IconButton>
               </div>
-              <div className="ext-card-actions">
-                <button 
-                  className="ext-btn"
-                  onClick={() => handleToggle(ext.id, !ext.isEnabled)}
-                >
-                  {ext.isEnabled ? 'Disable' : 'Enable'}
-                </button>
-                <button 
-                  className="ext-btn ext-btn-danger"
-                  onClick={() => handleRemove(ext.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 };
