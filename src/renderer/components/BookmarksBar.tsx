@@ -1,4 +1,5 @@
 import React from 'react';
+import { Star, X } from 'lucide-react';
 import { BookmarkItem } from '../../shared/types';
 
 interface BookmarksBarProps {
@@ -19,15 +20,17 @@ export const BookmarksBar: React.FC<BookmarksBarProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        background: '#0f172a',
-        padding: '4px 12px',
-        gap: '12px',
-        borderBottom: '1px solid #1e2937',
-        fontSize: '12px',
+        background: 'var(--bg-1)',
+        padding: '3px 12px',
+        gap: '4px',
+        borderBottom: '1px solid var(--border)',
+        fontSize: '11px',
+        height: '28px',
+        flexShrink: 0,
         overflowX: 'auto',
       }}
     >
-      {bookmarks.slice(0, 10).map((bm) => (
+      {bookmarks.slice(0, 12).map((bm) => (
         <div
           key={bm.id}
           onClick={() => onNavigate(bm.url)}
@@ -35,22 +38,30 @@ export const BookmarksBar: React.FC<BookmarksBarProps> = ({
             e.preventDefault();
             onRemoveBookmark(bm.id);
           }}
-          title={`${bm.title} (${bm.url}) - Right-click to delete`}
+          title={`${bm.title} (${bm.url}) — Right-click to remove`}
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: '4px',
+            gap: '5px',
             cursor: 'pointer',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            color: '#cbd5e1',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-2)',
             whiteSpace: 'nowrap',
+            maxWidth: '180px',
+            transition: 'background 0.1s ease, color 0.1s ease',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#1e293b')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--bg-2)';
+            e.currentTarget.style.color = 'var(--text)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--text-2)';
+          }}
         >
-          <span>★</span>
-          <span>{bm.title}</span>
+          <Star size={11} fill="var(--warn)" color="var(--warn)" style={{ flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{bm.title}</span>
         </div>
       ))}
     </div>
