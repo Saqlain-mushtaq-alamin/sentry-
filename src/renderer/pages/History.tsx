@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
+import { Clock, Trash2, Search } from 'lucide-react';
 import { HistoryItem } from '../../shared/types';
+import { PageShell } from '../components/ui/PageShell';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { IconButton } from '../components/ui/IconButton';
 
 interface HistoryProps {
   history: HistoryItem[];
@@ -17,82 +22,95 @@ export const History: React.FC<HistoryProps> = ({
   const [filter, setFilter] = useState('');
 
   const filtered = history.filter(
-    (h) => h.title.toLowerCase().includes(filter.toLowerCase()) || h.url.toLowerCase().includes(filter.toLowerCase())
+    (h) =>
+      h.title.toLowerCase().includes(filter.toLowerCase()) ||
+      h.url.toLowerCase().includes(filter.toLowerCase())
   );
 
   return (
-    <div style={{ padding: '2rem 4rem', color: '#f8fafc', maxWidth: '900px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1 style={{ fontSize: '2rem' }}>Browsing History</h1>
-        <button
-          onClick={onClearHistory}
-          style={{
-            background: '#ef4444',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-          }}
-        >
-          Clear All History
-        </button>
-      </div>
-
-      <input
-        type="text"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        placeholder="Search history..."
+    <PageShell
+      title="History"
+      description="View and manage visited sites and pages."
+      headerActions={
+        history.length > 0 ? (
+          <Button variant="danger" size="sm" onClick={onClearHistory} icon={<Trash2 size={12} />}>
+            Clear history
+          </Button>
+        ) : undefined
+      }
+    >
+      {/* Search Bar */}
+      <div
         style={{
-          width: '100%',
-          padding: '10px 16px',
-          background: '#1e293b',
-          border: '1px solid #334155',
-          borderRadius: '8px',
-          color: '#fff',
-          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'var(--bg-1)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '6px 10px',
         }}
-      />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {filtered.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              background: '#1e293b',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.05)',
-            }}
-          >
-            <div
-              onClick={() => onNavigate(item.url)}
-              style={{ cursor: 'pointer', overflow: 'hidden', marginRight: '1rem' }}
-            >
-              <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.title}</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{item.url}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <button
-                onClick={() => onRemoveEntry(item.id)}
-                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <p style={{ color: '#64748b', textAlign: 'center', marginTop: '2rem' }}>No history found.</p>
-        )}
+      >
+        <Search size={14} style={{ color: 'var(--text-3)' }} />
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search history…"
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: 'var(--text)',
+            fontSize: '12px',
+            fontFamily: 'inherit',
+          }}
+        />
       </div>
-    </div>
+
+      {filtered.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '32px', color: 'var(--text-3)' }}>
+          {filter ? 'No history matching your search.' : 'No browsing history recorded.'}
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {filtered.map((item) => (
+            <Card
+              key={item.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+              }}
+            >
+              <div
+                onClick={() => onNavigate(item.url)}
+                style={{ cursor: 'pointer', overflow: 'hidden', flex: 1 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={12} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title || 'Untitled page'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', paddingLeft: '20px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.url}
+                </div>
+              </div>
+
+              <IconButton
+                label="Remove entry"
+                onClick={() => onRemoveEntry(item.id)}
+                style={{ color: 'var(--text-3)' }}
+              >
+                <Trash2 size={13} />
+              </IconButton>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 };
