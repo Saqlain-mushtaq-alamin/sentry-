@@ -73,8 +73,13 @@ export const TrustDashboard: React.FC = () => {
   };
 
   const handleRemoveDomain = async (domain: string) => {
+    const sentry = (window as any).sentry;
+    if (sentry?.trust?.remove) {
+      await sentry.trust.remove(domain);
+    }
     setEntries((prev) => prev.filter((e) => e.domain !== domain));
   };
+
 
   const getLevelBadge = (level: SiteTrustLevel) => {
     switch (level) {
