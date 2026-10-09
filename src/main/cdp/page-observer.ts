@@ -95,6 +95,37 @@ export class PageObserver {
     const forms = this.extractForms(simplifiedDom);
     const links = this.extractLinks(simplifiedDom);
 
+    // Populate real bounding boxes for interactive elements
+    if (interactiveElements.length > 0) {
+      try {
+        const selectors = interactiveElements.map(el => el.selector);
+        const rectsResult = await this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
+          expression: `(() => {
+            const selectors = ${JSON.stringify(selectors)};
+            return JSON.stringify(selectors.map(s => {
+              try {
+                const el = document.querySelector(s);
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) };
+              } catch { return null; }
+            }));
+          })()`,
+          returnByValue: true
+        });
+        if (rectsResult?.result?.value) {
+          const rects = JSON.parse(rectsResult.result.value);
+          rects.forEach((rect: BoundingBox | null, idx: number) => {
+            if (rect && interactiveElements[idx]) {
+              interactiveElements[idx]!.boundingBox = rect;
+            }
+          });
+        }
+      } catch {
+        // Fallback: continue with default boxes if CDP batch eval fails
+      }
+    }
+
     const snapshot: PageSnapshot = {
       url,
       title,
@@ -107,6 +138,7 @@ export class PageObserver {
       interactiveElements,
       estimatedTokenCount: Math.ceil(visibleText.length / 4),
     };
+
 
     console.debug(`[PageObserver] snapshot in ${Date.now() - start}ms`);
 
