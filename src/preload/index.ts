@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld('sentry', {
     saveRecipe: (instruction: string) => ipcRenderer.invoke('agent:save-recipe', instruction),
     deleteRecipe: (id: string) => ipcRenderer.invoke('agent:delete-recipe', id),
     replayRecipe: (id: string, variables: Record<string, string>) => ipcRenderer.invoke('agent:replay-recipe', id, variables),
+    forgetSite: (domain?: string) => ipcRenderer.invoke('agent:forget-site', domain),
+    clearLogs: () => ipcRenderer.invoke('agent:clear-logs'),
     forgetAll: () => ipcRenderer.invoke('agent:forget-all'),
     runMultiTab: (task: any) => ipcRenderer.invoke('agent:run-multi-tab', task),
     submitBackground: (task: any) => ipcRenderer.invoke('agent:submit-background', task),
@@ -134,6 +136,13 @@ contextBridge.exposeInMainWorld('sentry', {
       ipcRenderer.on('agent:step-trace-added', handler);
       return () => ipcRenderer.removeListener('agent:step-trace-added', handler);
     },
+    onConfirmationRequired: (callback: (data: any) => void) => {
+      const handler = (_: any, data: any) => callback(data);
+      ipcRenderer.on('agent:confirmation-required', handler);
+      return () => ipcRenderer.removeListener('agent:confirmation-required', handler);
+    },
+    respondConfirmation: (actionId: string, response: 'allow_once' | 'allow_site' | 'deny') =>
+      ipcRenderer.invoke(`agent:confirm:${actionId}`, response),
     getModelConfig: () => ipcRenderer.invoke('agent:get-model-config'),
     setModelConfig: (config: { localModel: string; cloudModel: string; routingMode: string }) => ipcRenderer.invoke('agent:set-model-config', config),
     listOllamaModels: () => ipcRenderer.invoke('agent:list-ollama-models'),
@@ -152,7 +161,19 @@ contextBridge.exposeInMainWorld('sentry', {
   trust: {
     getAll: () => ipcRenderer.invoke('trust:get-all'),
     setLevel: (domain: string, level: string) => ipcRenderer.invoke('trust:set-level', domain, level),
+    remove: (domain: string) => ipcRenderer.invoke('trust:remove', domain),
     getDefaults: () => ipcRenderer.invoke('trust:get-defaults'),
+  },
+
+  // Secrets Management (safeStorage)
+  secrets: {
+    set: (name: string, value: string) => ipcRenderer.invoke('secrets:set', name, value),
+    has: (name: string) => ipcRenderer.invoke('secrets:has', name),
+  },
+
+  // Voice Input Transcription
+  voice: {
+    transcribe: (audio: ArrayBuffer, mime: string) => ipcRenderer.invoke('voice:transcribe', audio, mime),
   },
 
   // Subscriptions
@@ -171,6 +192,7 @@ contextBridge.exposeInMainWorld('sentry', {
     ipcRenderer.on('tabs:reload-internal', handler);
     return () => ipcRenderer.removeListener('tabs:reload-internal', handler);
   },
+
 });
 
 
