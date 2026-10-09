@@ -90,6 +90,21 @@ export class ReActLoop {
     let stepCount = 0;
     const recentActionKeys: string[] = [];
 
+    let totalTokens = 0;
+    let totalCost = 0;
+    let totalDecisions = 0;
+    let totalAllowed = 0;
+    let totalBlocked = 0;
+    let totalConfirmationsAsked = 0;
+    let totalConfirmationsDenied = 0;
+    let totalScans = 0;
+    let detectionsFound = 0;
+    let totalObservationLatency = 0;
+    let totalModelLatency = 0;
+    let totalFirewallLatency = 0;
+    let totalExecLatency = 0;
+    const accumulatedSteps: TraceStep[] = [];
+
     while (
       this.sm.getState() !== TaskState.COMPLETED &&
       this.sm.getState() !== TaskState.FAILED
@@ -167,6 +182,7 @@ export class ReActLoop {
       let parseAttempts = 0;
       let modelLatency = 0;
       let chatResponseContent = '';
+      let chatResponseCost = 0;
       let tokensIn = 0;
       let tokensOut = 0;
 
@@ -186,6 +202,7 @@ export class ReActLoop {
         }
         modelLatency = Date.now() - modelStart;
         chatResponseContent = chatResponse.content;
+        chatResponseCost = chatResponse.cost || 0;
         tokensIn = chatResponse.tokenUsage?.prompt || this.adapter.estimateTokens(systemPromptText + JSON.stringify(messages));
         tokensOut = chatResponse.tokenUsage?.completion || this.adapter.estimateTokens(chatResponseContent);
 
@@ -409,8 +426,23 @@ export class ReActLoop {
         },
       };
 
+      accumulatedSteps.push(traceStep);
+      totalTokens += (tokensIn + tokensOut);
+      totalCost += chatResponseCost;
+      totalDecisions++;
+      if (decision.allowed) totalAllowed++;
+      else totalBlocked++;
+      if (decision.requiresConfirmation) totalConfirmationsAsked++;
+      totalScans++;
+      if (!scanReport.isClean) detectionsFound++;
+      totalObservationLatency += obsLatency;
+      totalModelLatency += modelLatency;
+      totalFirewallLatency += firewallLatency;
+      totalExecLatency += execLatency;
+
       if (this.stepTraceCallback) {
-        const dummyTrace: TaskTrace = {
+        const stepTotalDuration = totalObservationLatency + totalModelLatency + totalFirewallLatency + totalExecLatency;
+        const liveTrace: TaskTrace = {
           version: '1.0',
           exportedAt: new Date().toISOString(),
           sentryVersion: '0.1.0',
@@ -426,16 +458,32 @@ export class ReActLoop {
             providerId: this.adapter.providerId,
             modelId: this.adapter.modelId,
             isLocal: this.adapter.providerId === 'ollama',
-            totalTokens: tokensIn + tokensOut,
-            estimatedCost: 0,
+            totalTokens,
+            estimatedCost: totalCost,
           },
-          steps: [],
-          firewallSummary: { totalDecisions: 1, allowed: decision.allowed ? 1 : 0, blocked: decision.allowed ? 0 : 1, confirmationsAsked: decision.requiresConfirmation ? 1 : 0, confirmationsDenied: 0 },
-          injectionSummary: { totalScans: 1, detectionsFound: scanReport.isClean ? 0 : 1, falsePositives: 0 },
-          performance: { totalDurationMs: obsLatency + modelLatency + firewallLatency + execLatency, avgStepLatencyMs: modelLatency, avgModelLatencyMs: modelLatency, avgActionLatencyMs: execLatency },
+          steps: accumulatedSteps,
+          firewallSummary: {
+            totalDecisions,
+            allowed: totalAllowed,
+            blocked: totalBlocked,
+            confirmationsAsked: totalConfirmationsAsked,
+            confirmationsDenied: totalConfirmationsDenied,
+          },
+          injectionSummary: {
+            totalScans,
+            detectionsFound,
+            falsePositives: 0,
+          },
+          performance: {
+            totalDurationMs: stepTotalDuration,
+            avgStepLatencyMs: Math.round(stepTotalDuration / (stepCount + 1)),
+            avgModelLatencyMs: Math.round(totalModelLatency / (stepCount + 1)),
+            avgActionLatencyMs: Math.round(totalExecLatency / (stepCount + 1)),
+          },
         };
-        this.stepTraceCallback(traceStep, dummyTrace);
+        this.stepTraceCallback(traceStep, liveTrace);
       }
+
 
       if (!execResult.success) {
         messages.push({
