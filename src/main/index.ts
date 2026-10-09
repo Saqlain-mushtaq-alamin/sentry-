@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, globalShortcut, session } from 'electron';
 import path from 'path';
 import { StorageManager } from './browser/storage-manager';
 import { TabManager } from './browser/tab-manager';
@@ -33,9 +33,17 @@ function createWindow(): void {
     },
   });
 
+  const ses = session.defaultSession;
+  ses.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(wc === mainWindow?.webContents && permission === 'media');
+  });
+  ses.setPermissionCheckHandler((wc, permission) =>
+    wc === mainWindow?.webContents && permission === 'media');
+
   tabManager = new TabManager(mainWindow, storageManager);
   downloadManager = new DownloadManager(mainWindow, storageManager);
   agentService = new AgentService(mainWindow, storageManager, tabManager);
+
 
   extensionManager = new ExtensionManager(tabManager);
   // electron-chrome-extensions needs to be initialized after session is ready
