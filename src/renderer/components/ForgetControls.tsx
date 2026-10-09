@@ -17,19 +17,30 @@ export const ForgetControls: React.FC = () => {
     setTimeout(() => setStatusMessage(null), 3500);
   };
 
-  const handleForgetSite = () => {
-    showStatus('Trust rules and preferences cleared for this domain.');
+  const handleForgetSite = async () => {
+    try {
+      await (window as any).sentry?.agent?.forgetSite?.();
+      showStatus('Trust rules and preferences cleared for this domain.');
+    } catch (e: any) {
+      showStatus('Failed to clear domain data: ' + (e.message || String(e)));
+    }
   };
 
   const handleForgetHistory = () => {
     setConfirmModal({
       title: 'Clear action history',
       description: 'Are you sure you want to clear all action logs and temporary task history?',
-      action: () => {
-        showStatus('Action history cleared.');
+      action: async () => {
+        try {
+          await (window as any).sentry?.agent?.clearLogs?.();
+          showStatus('Action history cleared.');
+        } catch (e: any) {
+          showStatus('Failed to clear action history: ' + (e.message || String(e)));
+        }
       },
     });
   };
+
 
   const handleForgetAll = () => {
     setConfirmModal({
