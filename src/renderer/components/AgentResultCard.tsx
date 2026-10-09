@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check, Volume2, Square, X, Sparkles } from 'lucide-react';
 import { IconButton } from './ui/IconButton';
 import { Card } from './ui/Card';
+import { speak, stop } from '../services/tts';
 
 export interface AgentResultCardProps {
   instruction: string;
@@ -31,13 +32,14 @@ export const AgentResultCard: React.FC<AgentResultCardProps> = ({
   const handleToggleSpeak = () => {
     if (!summary) return;
     if (isSpeaking) {
-      window.sentry?.agent?.stopSpeech?.();
+      stop();
       setIsSpeaking(false);
     } else {
-      window.sentry?.agent?.speak?.(summary);
+      speak(summary);
       setIsSpeaking(true);
     }
   };
+
 
   return (
     <Card
