@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { TabItem, BookmarkItem, HistoryItem, DownloadItem, UserSettings } from '../shared/types';
+import { TabItem, BookmarkItem, HistoryItem, DownloadItem, UserSettings, ProposedAction, FirewallDecision } from '../shared/types';
 import { TabBar } from './components/TabBar';
 import { AddressBar } from './components/AddressBar';
 import { BookmarksBar } from './components/BookmarksBar';
@@ -17,6 +17,8 @@ import { AgentSidebar, AgentResultData } from './components/AgentSidebar';
 import { AgentVision } from './overlays/AgentVision';
 import { InjectionAlert } from './overlays/InjectionAlert';
 import { MultiTabDashboard } from './overlays/MultiTabDashboard';
+import { ConfirmationDialog } from './overlays/ConfirmationDialog';
+import { speak, stop } from './services/tts';
 import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep } from '../shared/types';
 import './styles/index.css';
 
@@ -76,7 +78,15 @@ declare global {
       trust: {
         getAll: () => Promise<import('../shared/types').SiteTrustEntry[]>;
         setLevel: (domain: string, level: string) => Promise<boolean>;
+        remove: (domain: string) => Promise<boolean>;
         getDefaults: () => Promise<string[]>;
+      };
+      secrets: {
+        set: (name: string, value: string) => Promise<boolean>;
+        has: (name: string) => Promise<boolean>;
+      };
+      voice: {
+        transcribe: (audio: ArrayBuffer, mime: string) => Promise<string>;
       };
       agent: {
         runTask: (instruction: string) => Promise<{ success: boolean; result?: import('../shared/types').TaskResult; error?: string }>;
@@ -88,6 +98,8 @@ declare global {
         saveRecipe: (instruction: string) => Promise<any>;
         deleteRecipe: (id: string) => Promise<boolean>;
         replayRecipe: (id: string, variables: Record<string, string>) => Promise<any>;
+        forgetSite?: (domain?: string) => Promise<boolean>;
+        clearLogs?: () => Promise<boolean>;
         forgetAll: () => Promise<boolean>;
         runMultiTab: (task: MultiTabTask) => Promise<any>;
         submitBackground: (task: any) => Promise<boolean>;
@@ -109,6 +121,8 @@ declare global {
         onRoutingDecision: (callback: (decision: any) => void) => () => void;
         onDeveloperStatsUpdated: (callback: (stats: DeveloperSessionStats) => void) => () => void;
         onStepTraceAdded: (callback: (step: TraceStep) => void) => () => void;
+        onConfirmationRequired?: (callback: (data: { action: ProposedAction; decision: FirewallDecision }) => void) => () => void;
+        respondConfirmation?: (actionId: string, response: 'allow_once' | 'allow_site' | 'deny') => Promise<void>;
         onToggleCommandBox?: (callback: () => void) => () => void;
         onShortcutPauseResume?: (callback: () => void) => () => void;
         onShortcutStop?: (callback: () => void) => () => void;
@@ -119,6 +133,7 @@ declare global {
     };
   }
 }
+
 
 export default function App(): React.JSX.Element {
   const [tabs, setTabs] = useState<TabItem[]>([]);
@@ -143,13 +158,36 @@ export default function App(): React.JSX.Element {
   ]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
-  const [activeSnapshot] = useState<PageSnapshot | undefined>(undefined);
+  const [activeSnapshot, setActiveSnapshot] = useState<PageSnapshot | undefined>(undefined);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    action: ProposedAction;
+    decision: FirewallDecision;
+  } | null>(null);
   const [injectionReport, setInjectionReport] = useState<any>(null);
   const [routingDecision, setRoutingDecision] = useState<any>(null);
   const [lastInstruction, setLastInstruction] = useState<string>('');
   const [multiTabTask, setMultiTabTask] = useState<MultiTabTask | null>(null);
   const [lastAgentResult, setLastAgentResult] = useState<AgentResultData | null>(null);
   const [focusTrigger, setFocusTrigger] = useState(0);
+
+  const taskStateRef = useRef<TaskState>(taskState);
+  taskStateRef.current = taskState;
+  const settingsRef = useRef<UserSettings | null>(settings);
+  settingsRef.current = settings;
+
+  // Apply theme dynamically
+  useEffect(() => {
+    if (settings?.theme) {
+      document.documentElement.setAttribute('data-theme', settings.theme);
+    }
+  }, [settings?.theme]);
+
+  // Voice output helper
+  const speakIfEnabled = useCallback((text: string) => {
+    if (settingsRef.current?.voiceOutputEnabled) {
+      speak(text);
+    }
+  }, []);
 
   // Step 2: Content measurement with ResizeObserver (no hardcoded offsets!)
   const contentRef = useRef<HTMLDivElement>(null);
@@ -232,30 +270,7 @@ export default function App(): React.JSX.Element {
     ]);
 
     if (window.sentry?.agent) {
-      window.sentry.agent.speak?.(`Executing: ${instruction}`);
-
-      if (instruction.toLowerCase().includes('compare') || instruction.toLowerCase().includes('multi-tab')) {
-        const dummyMultiTab: MultiTabTask = {
-          id: `mt-${Date.now()}`,
-          instruction,
-          createdAt: Date.now(),
-          tabs: [
-            { tabId: 'tab-1', subInstruction: `${instruction} on site A`, status: 'running', progressPercent: 30 },
-            { tabId: 'tab-2', subInstruction: `${instruction} on site B`, status: 'pending', progressPercent: 0 }
-          ],
-          results: {}
-        };
-        setMultiTabTask(dummyMultiTab);
-        try {
-          await window.sentry.agent.runMultiTab(dummyMultiTab);
-          setTaskState(TaskState.COMPLETED);
-          window.sentry.agent.speak?.('Multi-tab task completed successfully');
-        } catch (e: any) {
-          setTaskState(TaskState.FAILED);
-          window.sentry.agent.speak?.('Multi-tab task failed');
-        }
-        return;
-      }
+      speakIfEnabled(`Executing: ${instruction}`);
 
       const res = await window.sentry.agent.runTask(instruction);
       if (res.success) {
@@ -268,9 +283,9 @@ export default function App(): React.JSX.Element {
             timestamp: Date.now(),
           });
           const spoken = summary.length > 120 ? `${summary.slice(0, 120)}...` : summary;
-          window.sentry.agent.speak?.(spoken);
+          speakIfEnabled(spoken);
         } else {
-          window.sentry.agent.speak?.('Task completed');
+          speakIfEnabled('Task completed');
         }
         setNotifications((prev) => [
           ...prev,
@@ -286,7 +301,7 @@ export default function App(): React.JSX.Element {
       } else {
         setTaskState(TaskState.FAILED);
         const errMessage = res.error || res.result?.error || 'Failed to complete agent task';
-        window.sentry.agent.speak?.('Task failed');
+        speakIfEnabled('Task failed');
         setNotifications((prev) => [
           ...prev,
           {
@@ -313,9 +328,11 @@ export default function App(): React.JSX.Element {
   };
 
   const handleStop = async () => {
+    stop();
     setTaskState(TaskState.IDLE);
     if (window.sentry?.agent) await window.sentry.agent.stop();
   };
+
 
   const handleSaveRecipe = async (instruction: string) => {
     try {
@@ -502,15 +519,20 @@ export default function App(): React.JSX.Element {
       });
 
       const unsubPause = window.sentry.agent?.onShortcutPauseResume?.(() => {
-        if ([TaskState.PLANNING, TaskState.EXECUTING, TaskState.AWAITING_CONFIRMATION].includes(taskState)) {
+        const current = taskStateRef.current;
+        if ([TaskState.PLANNING, TaskState.EXECUTING, TaskState.AWAITING_CONFIRMATION].includes(current)) {
           handlePause();
-        } else if (taskState === TaskState.PAUSED) {
+        } else if (current === TaskState.PAUSED) {
           handleResume();
         }
       });
 
       const unsubStop = window.sentry.agent?.onShortcutStop?.(() => {
         handleStop();
+      });
+
+      const unsubConfirm = window.sentry.agent?.onConfirmationRequired?.((payload: { action: ProposedAction; decision: FirewallDecision }) => {
+        setPendingConfirmation(payload);
       });
 
       return () => {
@@ -524,20 +546,14 @@ export default function App(): React.JSX.Element {
         if (unsubToggle) unsubToggle();
         if (unsubPause) unsubPause();
         if (unsubStop) unsubStop();
+        if (unsubConfirm) unsubConfirm();
       };
     }
-  }, [loadInitialData, taskState, toggleAndFocusAgent]);
+  }, [loadInitialData, toggleAndFocusAgent]);
 
   // Keyboard Shortcuts (single unified registry)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Shift+Space: Toggle Agent sidebar & focus
-      if (e.ctrlKey && e.shiftKey && (e.code === 'Space' || e.key === ' ' || e.key === 'Space')) {
-        e.preventDefault();
-        toggleAndFocusAgent();
-        return;
-      }
-
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case 't':
@@ -820,6 +836,32 @@ export default function App(): React.JSX.Element {
               onDismiss={() => setInjectionReport(null)}
               onReportFalsePositive={() => {
                 setInjectionReport(null);
+              }}
+            />
+          )}
+
+          {/* Action Firewall Confirmation Modal */}
+          {pendingConfirmation && (
+            <ConfirmationDialog
+              action={pendingConfirmation.action}
+              riskTier={pendingConfirmation.decision.riskTier}
+              siteTrust={pendingConfirmation.decision.siteTrust}
+              explanation={pendingConfirmation.decision.explanation}
+              domain={(() => {
+                try {
+                  return new URL(pendingConfirmation.action.url).hostname;
+                } catch {
+                  return pendingConfirmation.action.url || 'current site';
+                }
+              })()}
+              onConfirm={async (response) => {
+                if (window.sentry?.agent?.respondConfirmation) {
+                  await window.sentry.agent.respondConfirmation(
+                    pendingConfirmation.action.id,
+                    response
+                  );
+                }
+                setPendingConfirmation(null);
               }}
             />
           )}
