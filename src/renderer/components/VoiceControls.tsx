@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Mic, MicOff, Loader2 } from 'lucide-react';
 import './VoiceControls.css';
 
 interface VoiceControlsProps {
@@ -11,75 +11,107 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   onTranscriptReceived,
   onListeningStateChange,
 }) => {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const [status, setStatus] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const [error, setError] = useState('');
 
-  const toggleListening = () => {
-    const nextState = !isListening;
-    setIsListening(nextState);
-    if (onListeningStateChange) onListeningStateChange(nextState);
+  const start = async () => {
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+      const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      chunks.current = [];
 
-    if (nextState) {
-      setTranscript('Listening… Speak into your microphone');
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.current.push(e.data);
+      };
 
-      if (SpeechRecognition) {
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setStatus('transcribing');
         try {
-          const recognition = new SpeechRecognition();
-          recognition.continuous = false;
-          recognition.interimResults = true;
-          recognition.lang = 'en-US';
-
-          recognition.onresult = (event: any) => {
-            const current = event.resultIndex;
-            const text = event.results[current][0].transcript;
-            setTranscript(text);
-            if (event.results[current].isFinal && onTranscriptReceived) {
-              onTranscriptReceived(text);
-              setIsListening(false);
-            }
-          };
-
-          recognition.onerror = (event: any) => {
-            console.warn('[VoiceControls] Speech recognition error:', event.error);
-            if (event.error === 'network' || event.error === 'not-allowed' || event.error === 'no-speech') {
-              setTranscript('Speech input unavailable or permission denied.');
-            }
-          };
-
-          recognition.start();
-        } catch (err) {
-          console.error('[VoiceControls] Failed to start speech recognition:', err);
-          setTranscript('Speech recognition initialization failed.');
+          const actualMime = rec.mimeType || 'audio/webm';
+          const blob = new Blob(chunks.current, { type: actualMime });
+          const arrayBuffer = await blob.arrayBuffer();
+          if (!window.sentry?.voice?.transcribe) {
+            throw new Error('Voice transcription is not available.');
+          }
+          const text = await window.sentry.voice.transcribe(arrayBuffer, actualMime);
+          if (text && text.trim()) {
+            onTranscriptReceived?.(text.trim());
+          }
+        } catch (e: any) {
+          setError(e.message || 'Transcription failed');
+        } finally {
+          setStatus('idle');
+          onListeningStateChange?.(false);
         }
-      } else {
-        setTranscript('Web Speech API not supported in this environment.');
-      }
-    } else {
-      setTranscript('');
+      };
+
+      rec.start();
+      recRef.current = rec;
+      setStatus('recording');
+      onListeningStateChange?.(true);
+    } catch {
+      setError('Microphone unavailable or permission denied.');
+      setStatus('idle');
+      onListeningStateChange?.(false);
     }
   };
+
+  const stop = () => {
+    if (recRef.current && recRef.current.state === 'recording') {
+      recRef.current.stop();
+    }
+  };
+
+  const cancel = () => {
+    if (recRef.current && recRef.current.state === 'recording') {
+      recRef.current.onstop = null; // don't process transcript
+      recRef.current.stop();
+    }
+    chunks.current = [];
+    setStatus('idle');
+    setError('');
+    onListeningStateChange?.(false);
+  };
+
+  const isRecording = status === 'recording';
+  const isTranscribing = status === 'transcribing';
 
   return (
     <div className="voice-controls" role="region" aria-label="Voice Controls">
       <button
         type="button"
-        className={`voice-btn ${isListening ? 'listening' : ''}`}
-        onClick={toggleListening}
-        title={isListening ? 'Stop voice input' : 'Voice input'}
-        aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+        className={`voice-btn ${isRecording ? 'listening' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+        onClick={isRecording ? stop : start}
+        disabled={isTranscribing}
+        title={isRecording ? 'Stop voice input' : isTranscribing ? 'Transcribing...' : 'Voice input'}
+        aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
       >
-        {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+        {isTranscribing ? <Loader2 size={13} className="spin" /> : isRecording ? <MicOff size={13} /> : <Mic size={13} />}
       </button>
 
-      {isListening && (
+      {(isRecording || isTranscribing || error) && (
         <div className="voice-transcript-overlay" role="status" aria-live="polite">
           <div className="transcript-box">
-            <span className="listening-indicator">Listening…</span>
-            <p className="transcript-text">{transcript}</p>
+            <span className="listening-indicator">
+              {isTranscribing ? 'Transcribing audio…' : isRecording ? 'Listening… Speak into your microphone' : 'Voice Input'}
+            </span>
+            {error ? (
+              <p className="transcript-text" style={{ color: 'var(--danger)' }}>{error}</p>
+            ) : (
+              <p className="transcript-text">
+                {isTranscribing ? 'Processing speech with Whisper API…' : 'Recording in progress… Click Stop when finished.'}
+              </p>
+            )}
             <div className="controls-row">
-              <button onClick={toggleListening} className="voice-action-btn">Stop</button>
-              <button onClick={() => { setIsListening(false); setTranscript(''); }} className="voice-action-btn">Cancel</button>
+              {isRecording && (
+                <button onClick={stop} className="voice-action-btn">Stop</button>
+              )}
+              <button onClick={cancel} className="voice-action-btn">Close</button>
             </div>
           </div>
         </div>
