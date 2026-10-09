@@ -37,14 +37,18 @@ export class StorageManager {
   private filePath: string;
   private data: StoreData;
 
-  constructor() {
-    let userDataPath = '';
-    try {
-      userDataPath = app.getPath('userData');
-    } catch {
-      userDataPath = process.cwd();
+  constructor(customPath?: string) {
+    if (customPath) {
+      this.filePath = customPath.endsWith('.json') ? customPath : path.join(customPath, 'sentry-store.json');
+    } else {
+      let userDataPath = '';
+      try {
+        userDataPath = app.getPath('userData');
+      } catch {
+        userDataPath = process.cwd();
+      }
+      this.filePath = path.join(userDataPath, 'sentry-store.json');
     }
-    this.filePath = path.join(userDataPath, 'sentry-store.json');
     this.data = this.loadData();
   }
 
@@ -201,13 +205,14 @@ export class StorageManager {
 
   // Site Forgetting
   public forgetSite(domainOrUrl: string): void {
-    const clean = domainOrUrl.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+    const clean = (domainOrUrl || '').toLowerCase().replace(/^https?:\/\//, '').split('/')[0] || '';
+    if (!clean) return;
     this.data.history = this.data.history.filter((h) => {
       try {
         const itemDomain = new URL(h.url).hostname.toLowerCase();
         return !itemDomain.includes(clean);
       } catch {
-        return !h.url.toLowerCase().includes(clean);
+        return !(h.url || '').toLowerCase().includes(clean);
       }
     });
     this.saveData();
