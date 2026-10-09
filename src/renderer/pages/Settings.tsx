@@ -152,6 +152,119 @@ export const Settings: React.FC<SettingsProps> = ({ onClearHistory }) => {
         </div>
       </Card>
 
+      {/* Appearance */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Appearance
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Theme
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Choose your preferred interface appearance.
+            </p>
+          </div>
+          <select
+            value={settings.theme || 'dark'}
+            onChange={(e) => handleUpdate({ theme: e.target.value as UserSettings['theme'] })}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System Default</option>
+          </select>
+        </div>
+      </Card>
+
+      {/* Voice & Speech */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Voice & speech
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Agent speech output (TTS)
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Speak task execution status and completion summaries aloud.
+            </p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={settings.voiceOutputEnabled ?? true}
+              onChange={(e) => handleUpdate({ voiceOutputEnabled: e.target.checked })}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+            />
+          </label>
+        </div>
+      </Card>
+
+      {/* Downloads */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          Downloads
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Ask download location
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Prompt for confirmation and destination path before downloading each file.
+            </p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={settings.askDownloadPath ?? false}
+              onChange={(e) => handleUpdate({ askDownloadPath: e.target.checked })}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ flex: 1, marginRight: '16px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Default download folder
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Custom download directory (leave blank for system Downloads folder).
+            </p>
+          </div>
+          <input
+            type="text"
+            value={settings.defaultDownloadPath || ''}
+            placeholder="e.g. C:\Downloads"
+            onChange={(e) => handleUpdate({ defaultDownloadPath: e.target.value })}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+              width: '220px',
+            }}
+          />
+        </div>
+      </Card>
+
       {/* Privacy & Browsing Data */}
       <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
