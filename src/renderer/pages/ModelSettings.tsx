@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Check } from 'lucide-react';
+import { Check, Key, Shield } from 'lucide-react';
 import { PageShell } from '../components/ui/PageShell';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -11,24 +11,57 @@ export const ModelSettings: React.FC = () => {
   const [cloudModel, setCloudModel] = useState('gpt-4o');
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaOnline, setOllamaOnline] = useState<boolean | null>(null);
+
+  // API Keys state
+  const [openAIKey, setOpenAIKey] = useState('');
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [hasOpenAI, setHasOpenAI] = useState(false);
+  const [hasAnthropic, setHasAnthropic] = useState(false);
+
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const sentry = (window as any).sentry;
-    sentry?.agent?.getModelConfig?.().then((cfg: any) => {
-      if (cfg) {
-        setRoutingMode(cfg.routingMode || 'auto');
-        setLocalModel(cfg.localModel || 'llama3.1:8b');
-        setCloudModel(cfg.cloudModel || 'gpt-4o');
-      }
-    });
-    sentry?.agent?.checkOllama?.().then((ok: boolean) => setOllamaOnline(ok));
-    sentry?.agent?.listOllamaModels?.().then((models: string[]) => setOllamaModels(models || []));
+    if (sentry?.agent?.getModelConfig) {
+      sentry.agent.getModelConfig().then((cfg: any) => {
+        if (cfg) {
+          setRoutingMode(cfg.routingMode || 'auto');
+          setLocalModel(cfg.localModel || 'llama3.1:8b');
+          setCloudModel(cfg.cloudModel || 'gpt-4o');
+        }
+      });
+    }
+    if (sentry?.agent?.checkOllama) {
+      sentry.agent.checkOllama().then((ok: boolean) => setOllamaOnline(ok));
+    }
+    if (sentry?.agent?.listOllamaModels) {
+      sentry.agent.listOllamaModels().then((models: string[]) => setOllamaModels(models || []));
+    }
+    if (sentry?.secrets?.has) {
+      sentry.secrets.has('openai').then((has: boolean) => setHasOpenAI(has));
+      sentry.secrets.has('anthropic').then((has: boolean) => setHasAnthropic(has));
+    }
   }, []);
 
   const handleSave = async () => {
     const sentry = (window as any).sentry;
-    await sentry?.agent?.setModelConfig?.({ localModel, cloudModel, routingMode });
+    if (sentry?.agent?.setModelConfig) {
+      await sentry.agent.setModelConfig({ localModel, cloudModel, routingMode });
+    }
+
+    if (sentry?.secrets?.set) {
+      if (openAIKey.trim()) {
+        await sentry.secrets.set('openai', openAIKey.trim());
+        setOpenAIKey('');
+        setHasOpenAI(true);
+      }
+      if (anthropicKey.trim()) {
+        await sentry.secrets.set('anthropic', anthropicKey.trim());
+        setAnthropicKey('');
+        setHasAnthropic(true);
+      }
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -92,6 +125,110 @@ export const ModelSettings: React.FC = () => {
         </div>
       </Card>
 
+      {/* Cloud Model & Credentials */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+            Cloud API Credentials & Model
+          </h2>
+          <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+            Keys are encrypted on disk with your OS keystore via safeStorage and never exposed to web pages.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Provider model
+            </span>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Frontier model used when cloud execution is required.
+            </p>
+          </div>
+          <select
+            value={cloudModel}
+            onChange={(e) => setCloudModel(e.target.value)}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+          >
+            <option value="gpt-4o">OpenAI gpt-4o</option>
+            <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+            <option value="claude-sonnet-5-5">Anthropic Claude Sonnet 5.5</option>
+            <option value="claude-haiku-5-5">Anthropic Claude Haiku 5.5</option>
+          </select>
+        </div>
+
+        {/* OpenAI Key */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Key size={13} />
+              OpenAI API key
+            </label>
+            <Badge variant={hasOpenAI ? 'ok' : 'neutral'} dot>
+              {hasOpenAI ? 'Configured' : 'Not set'}
+            </Badge>
+          </div>
+          <input
+            type="password"
+            placeholder={hasOpenAI ? '•••••••••••••••• (Key saved — enter new key to replace)' : 'sk-...'}
+            value={openAIKey}
+            onChange={(e) => setOpenAIKey(e.target.value)}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Anthropic Key */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Key size={13} />
+              Anthropic API key
+            </label>
+            <Badge variant={hasAnthropic ? 'ok' : 'neutral'} dot>
+              {hasAnthropic ? 'Configured' : 'Not set'}
+            </Badge>
+          </div>
+          <input
+            type="password"
+            placeholder={hasAnthropic ? '•••••••••••••••• (Key saved — enter new key to replace)' : 'sk-ant-...'}
+            value={anthropicKey}
+            onChange={(e) => setAnthropicKey(e.target.value)}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      </Card>
+
       {/* Local Model (Ollama) */}
       <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -138,42 +275,6 @@ export const ModelSettings: React.FC = () => {
             No Ollama models detected. Run <code style={{ color: 'var(--accent)' }}>ollama pull llama3.1:8b</code> in your terminal.
           </p>
         )}
-      </Card>
-
-      {/* Cloud Model */}
-      <Card style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
-          Cloud fallback model
-        </h2>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
-              Provider model
-            </span>
-            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-              Frontier model used when cloud execution is required.
-            </p>
-          </div>
-          <select
-            value={cloudModel}
-            onChange={(e) => setCloudModel(e.target.value)}
-            style={{
-              background: 'var(--bg-1)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              padding: '4px 8px',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '12px',
-              fontFamily: 'inherit',
-              outline: 'none',
-            }}
-          >
-            <option value="gpt-4o">OpenAI gpt-4o</option>
-            <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
-            <option value="claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
-            <option value="claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
-          </select>
-        </div>
       </Card>
     </PageShell>
   );
