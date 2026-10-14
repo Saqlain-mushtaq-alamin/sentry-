@@ -64,6 +64,8 @@ export interface TabItem {
   isActive: boolean;
   isPinned?: boolean;
   zoomLevel?: number;
+  isSleeping?: boolean;
+  lastInteraction?: number;
 }
 
 /** Bookmark Item */
@@ -118,6 +120,8 @@ export interface UserSettings {
   askDownloadPath: boolean;
   developerMode?: boolean;
   voiceOutputEnabled?: boolean;
+  hasCompletedOnboarding?: boolean;
+  tabUnloadTimeoutMinutes?: number;
 }
 
 
