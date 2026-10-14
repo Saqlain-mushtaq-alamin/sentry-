@@ -31,11 +31,14 @@ const DEFAULT_SETTINGS: UserSettings = {
   defaultDownloadPath: '',
   askDownloadPath: false,
   voiceOutputEnabled: false,
+  hasCompletedOnboarding: false,
+  tabUnloadTimeoutMinutes: 5,
 };
 
 export class StorageManager {
   private filePath: string;
   private data: StoreData;
+  private isMemoryOnly = false;
 
   constructor(customPath?: string) {
     if (customPath) {
@@ -82,10 +85,12 @@ export class StorageManager {
   }
 
   private saveData(): void {
+    if (this.isMemoryOnly) return;
     try {
       fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('Failed to save store data:', err);
+      this.isMemoryOnly = true;
+      console.warn('[StorageManager] Disk full or write error; continuing in memory-only mode:', err);
     }
   }
 
