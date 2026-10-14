@@ -48,10 +48,13 @@ export class SecretStore {
 
     try {
       if (safeStorage && safeStorage.isEncryptionAvailable()) {
-        return safeStorage.decryptString(Buffer.from(enc, 'base64'));
-      } else {
-        return Buffer.from(enc, 'base64').toString('utf-8');
+        try {
+          return safeStorage.decryptString(Buffer.from(enc, 'base64'));
+        } catch {
+          // Fallback if encrypted value was plain base64
+        }
       }
+      return Buffer.from(enc, 'base64').toString('utf-8');
     } catch (e) {
       console.error(`[SecretStore] Failed to decrypt secret "${name}":`, e);
       return undefined;
