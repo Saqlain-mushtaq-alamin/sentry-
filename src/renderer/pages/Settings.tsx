@@ -288,6 +288,32 @@ export const Settings: React.FC<SettingsProps> = ({ onClearHistory }) => {
       {/* Memory Management */}
       <ForgetControls />
 
+      {/* Setup Guide */}
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+          First-run experience
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>
+              Reopen setup tour
+            </span>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+              Walk through Sentry core concepts, AI model selection, and trust tiers.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              window.sentry?.tabs.create('sentry://onboarding');
+            }}
+          >
+            Launch guide
+          </Button>
+        </div>
+      </Card>
+
       {/* Advanced & Developer Mode */}
       <Card style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <h2 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
