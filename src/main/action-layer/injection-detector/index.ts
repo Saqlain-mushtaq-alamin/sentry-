@@ -4,6 +4,7 @@ import { HiddenScanner } from './hidden-scanner';
 import { detectInjection } from './pattern-matcher';
 import { ContentSanitizer } from './content-sanitizer';
 import { ScanReport, DetectionResult } from './types';
+import { profiler } from '../../telemetry/performance-profiler';
 
 export class InjectionDetector {
   private hiddenScanner: HiddenScanner;
@@ -45,6 +46,7 @@ export class InjectionDetector {
     const isClean = allDetections.length === 0;
     const sanitizedSnapshot = this.sanitizer.sanitize(snapshot, allDetections);
     const elapsed = Date.now() - start;
+    profiler.recordInjectionScan(elapsed);
 
     return {
       isClean,
