@@ -78,7 +78,20 @@ const rules: PolicyRule[] = [
     name: 'Form Submission',
     description: 'Submitting a form is HIGH',
     priority: 80,
-    condition: (ctx) => ctx.action.type === 'click' && (ctx.targetElement as InteractiveElement)?.type === 'submit',
+    condition: (ctx) =>
+      ctx.action.type === 'submit' ||
+      (ctx.action.type === 'click' && (ctx.targetElement as InteractiveElement)?.type === 'submit'),
+    riskTier: RiskTier.HIGH,
+  },
+  {
+    id: 'file-upload',
+    name: 'File Upload',
+    description: 'Interacting with file upload inputs is HIGH',
+    priority: 88,
+    condition: (ctx) => {
+      const type = (ctx.targetElement as InteractiveElement)?.type;
+      return type === 'file';
+    },
     riskTier: RiskTier.HIGH,
   },
   {
@@ -94,6 +107,21 @@ const rules: PolicyRule[] = [
     riskTier: RiskTier.HIGH,
   },
   // MEDIUM Rules (Priority 50+)
+  {
+    id: 'form-controls',
+    name: 'Form Controls (checkbox, radio, select, range, date)',
+    description: 'Toggling form inputs is MEDIUM',
+    priority: 55,
+    condition: (ctx) => {
+      const type = (ctx.targetElement as InteractiveElement)?.type;
+      const tag = (ctx.targetElement as any)?.tag;
+      return (
+        ['checkbox', 'radio', 'date', 'range', 'color', 'reset'].includes(type || '') ||
+        tag === 'select'
+      );
+    },
+    riskTier: RiskTier.MEDIUM,
+  },
   {
     id: 'download-file',
     name: 'Download File',
@@ -200,6 +228,10 @@ export class RiskClassifier {
         finalTier = RiskTier.CRITICAL;
         escalatedFrom = baseTier;
         reasons.unshift('Escalated from HIGH to CRITICAL due to HIGHLY_RESTRICTED domain trust level');
+      } else if (baseTier === RiskTier.MEDIUM) {
+        finalTier = RiskTier.HIGH;
+        escalatedFrom = baseTier;
+        reasons.unshift('Escalated from MEDIUM to HIGH due to HIGHLY_RESTRICTED domain trust level');
       }
     } else if (siteTrust === SiteTrustLevel.READ_ONLY) {
        if (baseTier !== RiskTier.LOW) {
