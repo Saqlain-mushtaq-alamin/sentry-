@@ -248,3 +248,29 @@ textarea:focus:not(:focus-visible) {
   background: var(--bg-3);
   color: var(--text-2);
 }
+
+/* Light Theme Tokens */
+[data-theme='light'],
+body[data-theme='light'] {
+  --bg-0: #f4f5f7;
+  --bg-1: #ffffff;
+  --bg-2: #f0f2f5;
+  --bg-3: #e4e7ec;
+  --border: #d2d6dc;
+  --text: #111827;
+  --text-2: #4b5563;
+  --text-3: #9ca3af;
+  --accent-bg: rgba(76, 141, 255, 0.15);
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
