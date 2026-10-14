@@ -24,25 +24,46 @@ export class RecipeManager {
 
   private encrypt(text: string): string {
     if (safeStorage && safeStorage.isEncryptionAvailable()) {
-      return safeStorage.encryptString(text).toString('base64');
+      try {
+        return safeStorage.encryptString(text).toString('base64');
+      } catch (err) {
+        console.warn('safeStorage encryption failed, falling back to base64:', err);
+      }
     }
     return Buffer.from(text, 'utf-8').toString('base64');
   }
 
   private decrypt(text: string): string {
     if (safeStorage && safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(Buffer.from(text, 'base64'));
+      try {
+        return safeStorage.decryptString(Buffer.from(text, 'base64'));
+      } catch {
+        // Fallback if ciphertext was not encrypted with safeStorage
+      }
     }
-    return Buffer.from(text, 'base64').toString('utf-8');
+    try {
+      return Buffer.from(text, 'base64').toString('utf-8');
+    } catch {
+      return text;
+    }
   }
 
   private loadRecipes(): void {
     try {
       if (fs.existsSync(this.filePath)) {
         const encrypted = fs.readFileSync(this.filePath, 'utf-8');
+        if (!encrypted || !encrypted.trim()) {
+          return;
+        }
         const raw = this.decrypt(encrypted);
-        const parsed: Recipe[] = JSON.parse(raw);
-        parsed.forEach(r => this.recipes.set(r.id, r));
+        try {
+          const parsed: Recipe[] = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(r => this.recipes.set(r.id, r));
+          }
+        } catch (jsonErr) {
+          console.warn('Failed to parse recipes as JSON:', jsonErr);
+        }
       }
     } catch (err) {
       console.error('Failed to load recipes:', err);
