@@ -72,6 +72,10 @@ export class TabManager {
     return this.tabOrder.map((id) => this.tabs.get(id)!).filter(Boolean);
   }
 
+  public getAllTabs(): TabItem[] {
+    return this.getTabs();
+  }
+
   public getActiveTab(): TabItem | null {
     if (!this.activeTabId) return null;
     return this.tabs.get(this.activeTabId) || null;
@@ -79,6 +83,60 @@ export class TabManager {
 
   public getView(tabId: string): WebContentsView | undefined {
     return this.views.get(tabId);
+  }
+
+  public trackInteraction(tabId: string): void {
+    const tab = this.tabs.get(tabId);
+    if (tab) {
+      tab.lastInteraction = Date.now();
+    }
+  }
+
+  public unloadTab(id: string): boolean {
+    if (!this.tabs.has(id)) return false;
+    const tab = this.tabs.get(id)!;
+    if (tab.isActive) return false;
+    if (tab.url.startsWith('sentry://')) return false;
+    if (tab.isSleeping) return false;
+
+    const view = this.views.get(id);
+    if (view) {
+      try {
+        this.window.contentView.removeChildView(view);
+      } catch {
+        // ignored
+      }
+      this.views.delete(id);
+    }
+
+    tab.isSleeping = true;
+    tab.isLoading = false;
+    this.notifyTabsUpdated();
+    return true;
+  }
+
+  public wakeTab(id: string): void {
+    if (!this.tabs.has(id)) return;
+    const tab = this.tabs.get(id)!;
+    if (!tab.isSleeping && this.views.has(id)) return;
+
+    tab.isSleeping = false;
+    tab.lastInteraction = Date.now();
+
+    if (!tab.url.startsWith('sentry://')) {
+      const view = new WebContentsView({
+        webPreferences: {
+          sandbox: true,
+          contextIsolation: true,
+        },
+      });
+
+      this.setupViewEvents(id, view);
+      this.views.set(id, view);
+      view.webContents.loadURL(tab.url).catch((err) => console.error('Wake tab loadURL failed:', err));
+    }
+
+    this.notifyTabsUpdated();
   }
 
   public createTab(initialUrl?: string): TabItem {
@@ -98,6 +156,8 @@ export class TabManager {
       isActive: false,
       isPinned: false,
       zoomLevel: 1.0,
+      isSleeping: false,
+      lastInteraction: Date.now(),
     };
 
     const view = new WebContentsView({
@@ -159,6 +219,14 @@ export class TabManager {
 
   public switchTab(id: string): void {
     if (!this.tabs.has(id)) return;
+
+    const tab = this.tabs.get(id);
+    if (tab?.isSleeping) {
+      this.wakeTab(id);
+    }
+    if (tab) {
+      tab.lastInteraction = Date.now();
+    }
 
     // Detach all current child views
     this.views.forEach((view) => {
@@ -532,6 +600,8 @@ export class TabManager {
         return 'Bookmarks';
       case 'sentry://downloads':
         return 'Downloads';
+      case 'sentry://onboarding':
+        return 'Welcome to Sentry';
       case 'sentry://newtab':
       default:
         return 'New Tab';
