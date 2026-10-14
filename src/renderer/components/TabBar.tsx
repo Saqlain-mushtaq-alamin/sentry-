@@ -58,7 +58,7 @@ export const TabBar: React.FC<TabBarProps> = ({
               if (e.button === 1) onCloseTab(tab.id); // Middle click to close
             }}
             onContextMenu={(e) => handleContextMenu(e, tab.id)}
-            title={tab.title || 'New Tab'}
+            title={tab.isSleeping ? `${tab.title || 'New Tab'} (Sleeping — click to wake)` : (tab.title || 'New Tab')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -70,6 +70,7 @@ export const TabBar: React.FC<TabBarProps> = ({
               borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
               background: isActive ? 'var(--bg-1)' : 'transparent',
               color: isActive ? 'var(--text)' : 'var(--text-2)',
+              opacity: tab.isSleeping && !isActive ? 0.75 : 1,
               fontSize: '12px',
               cursor: 'pointer',
               borderTop: isActive ? '2px solid var(--accent)' : '2px solid transparent',
@@ -84,6 +85,19 @@ export const TabBar: React.FC<TabBarProps> = ({
             {/* Status dot or pin icon */}
             {tab.isPinned ? (
               <Pin size={12} style={{ color: 'var(--text-2)', transform: 'rotate(45deg)' }} />
+            ) : tab.isSleeping ? (
+              <span
+                title="Sleeping tab (click to wake)"
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: 'transparent',
+                  border: '1.5px dashed var(--text-3)',
+                  flexShrink: 0,
+                  display: 'inline-block',
+                }}
+              />
             ) : (
               <span
                 style={{
