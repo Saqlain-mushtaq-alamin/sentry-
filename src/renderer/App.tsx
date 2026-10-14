@@ -13,6 +13,7 @@ import { ModelSettings } from './pages/ModelSettings';
 import { RecipeManager } from './pages/RecipeManager';
 import { DeveloperModePage } from './pages/DeveloperMode';
 import { ExtensionManagerPage } from './pages/ExtensionManager';
+import { Onboarding } from './pages/Onboarding';
 import { AgentSidebar, AgentResultData } from './components/AgentSidebar';
 import { AgentVision } from './overlays/AgentVision';
 import { InjectionAlert } from './overlays/InjectionAlert';
@@ -805,6 +806,15 @@ export default function App(): React.JSX.Element {
           )}
           {activeTab?.url === 'sentry://extensions' && (
             <ExtensionManagerPage />
+          )}
+          {activeTab?.url === 'sentry://onboarding' && (
+            <Onboarding
+              onComplete={() => handleNavigate('sentry://newtab')}
+              onTryTask={(task) => {
+                handleNavigate('sentry://newtab');
+                handleSendTask(task);
+              }}
+            />
           )}
 
           {/* Multi-Tab Dashboard Overlay */}
