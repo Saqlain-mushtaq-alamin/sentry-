@@ -450,12 +450,6 @@ export class AgentService {
       return await this.replayEngine.replay(activeTabId, recipe, variables);
     });
 
-    ipcMain.handle('agent:forget-all', () => {
-      this.recipeManager.forgetAll();
-      this.actionHistory = [];
-      return true;
-    });
-
     ipcMain.handle('agent:run-multi-tab', async (_, task: MultiTabTask) => {
       // Create tab group for visual tracking
       const tabIds = task.tabs.map(t => t.tabId);
