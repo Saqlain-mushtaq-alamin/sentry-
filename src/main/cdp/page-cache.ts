@@ -11,7 +11,9 @@ import * as crypto from 'crypto';
 
 export class PageCache {
   private cache: Map<string, CacheEntry> = new Map();
+  private snapshotHistory: Map<string, PageSnapshot[]> = new Map();
   private readonly DEFAULT_TTL = 30 * 1000; // 30 seconds
+  private readonly MAX_SNAPSHOT_RETENTION = 3; // Keep last 3 per tab (Phase 14 memory target)
 
   /**
    * Store a snapshot in the cache.
@@ -27,6 +29,14 @@ export class PageCache {
       domHash,
     };
     this.cache.set(tabId, entry);
+
+    // Limit retention to last 3 snapshots per tab
+    const history = this.snapshotHistory.get(tabId) || [];
+    history.push(snapshot);
+    if (history.length > this.MAX_SNAPSHOT_RETENTION) {
+      history.splice(0, history.length - this.MAX_SNAPSHOT_RETENTION);
+    }
+    this.snapshotHistory.set(tabId, history);
   }
 
   /**
@@ -52,11 +62,19 @@ export class PageCache {
   }
 
   /**
+   * Get the retained snapshots (maximum 3) for a tab.
+   */
+  public getRecentSnapshots(tabId: string): PageSnapshot[] {
+    return [...(this.snapshotHistory.get(tabId) || [])];
+  }
+
+  /**
    * Explicitly invalidate the cache for a tab.
-   * Useful when an action is executed (click, type, etc.)
+   * Useful when an action is executed (click, type, etc.) or tab is unloaded.
    */
   public invalidate(tabId: string): void {
     this.cache.delete(tabId);
+    this.snapshotHistory.delete(tabId);
   }
   
   /**
@@ -64,6 +82,7 @@ export class PageCache {
    */
   public clearAll(): void {
     this.cache.clear();
+    this.snapshotHistory.clear();
   }
 
   private computeHash(snapshot: PageSnapshot): string {
