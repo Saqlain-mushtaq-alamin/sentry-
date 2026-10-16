@@ -14,11 +14,11 @@ export class OllamaAdapter implements ModelAdapter {
 
   constructor(config: OllamaConfig = {}) {
     this.baseUrl = config.baseUrl || 'http://127.0.0.1:11434';
-    this.modelId = config.modelId || 'llama3.1:8b';
+    this.modelId = config.modelId || 'qwen3:8b';
   }
 
   getContextLimit(): number {
-    return 8192;
+    return 16384;
   }
 
   estimateTokens(text: string): number {
