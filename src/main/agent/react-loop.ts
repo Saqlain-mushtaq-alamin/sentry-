@@ -393,7 +393,7 @@ export class ReActLoop {
           execResult = { success: true, duration: Date.now() - execStart };
           await new Promise(r => setTimeout(r, 1000));
         } else {
-          execResult = await this.executor.execute(task.tabId, actionRequest);
+          execResult = await this.executor.execute(task.tabId, actionRequest, snapshot);
         }
       } catch (err) {
         execResult = { success: false, error: String(err), duration: 0 };
