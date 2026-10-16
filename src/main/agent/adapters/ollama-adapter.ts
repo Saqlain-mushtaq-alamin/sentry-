@@ -105,18 +105,38 @@ export class OllamaAdapter implements ModelAdapter {
       ...request.messages.map(m => ({ role: m.role, content: m.content }))
     ];
 
+    const ACTION_SCHEMA = {
+      type: 'object',
+      properties: {
+        thought: { type: 'string' },
+        memory: { type: 'string' },
+        action: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', enum: ['click', 'type', 'press', 'scroll', 'navigate', 'select', 'goBack', 'done', 'ask_user'] },
+            target: { type: 'string' },
+            value: { type: 'string' },
+            reason: { type: 'string' },
+            answer: { type: 'string' },
+          },
+          required: ['type', 'reason'],
+        },
+      },
+      required: ['thought', 'action'],
+    };
+
     const body: Record<string, unknown> = {
       model: this.modelId,
       messages: formattedMessages,
       stream: false,
+      think: false, // Qwen3: no <think> block (needs recent Ollama)
+      format: request.responseFormat === 'json' ? ACTION_SCHEMA : undefined,
       options: {
-        temperature: request.temperature || 0.1,
-      }
+        temperature: request.temperature ?? 0.1,
+        num_ctx: 16384,
+        num_predict: request.maxTokens ?? 768,
+      },
     };
-
-    if (request.responseFormat === 'json') {
-      body.format = 'json';
-    }
 
     const start = Date.now();
     const response = await fetch(`${this.baseUrl}/api/chat`, {
