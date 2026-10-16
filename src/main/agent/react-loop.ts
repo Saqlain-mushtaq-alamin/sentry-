@@ -340,10 +340,14 @@ export class ReActLoop {
       }
 
       // ── ACT ──────────────────────────────────────────────────────────────
+      const dir = ['up', 'down', 'left', 'right'].includes(parsedAction.value ?? '')
+        ? (parsedAction.value as 'up' | 'down' | 'left' | 'right')
+        : 'down';
       const actionRequest = {
         type: parsedAction.type as import('../../shared/types').ActionType,
         target: parsedAction.target,
         value: parsedAction.value,
+        direction: parsedAction.type === 'scroll' ? dir : undefined,
       };
 
       const execStart = Date.now();
