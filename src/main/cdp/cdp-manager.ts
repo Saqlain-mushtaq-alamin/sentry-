@@ -134,4 +134,24 @@ export class CDPManager {
   public getConnections(): CDPConnection[] {
     return Array.from(this.connections.values());
   }
+
+  public waitForLoad(tabId: string, timeoutMs = 8000): Promise<void> {
+    const wc = this.viewResolver(tabId)?.webContents;
+    if (!wc || wc.isDestroyed()) return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        wc.off('did-stop-loading', finish);
+        setTimeout(resolve, 400); // let the page settle
+      };
+      const t = setTimeout(finish, timeoutMs);
+      wc.on('did-stop-loading', finish);
+      setTimeout(() => {
+        if (!wc.isLoading()) finish();
+      }, 250); // no navigation started
+    });
+  }
 }
