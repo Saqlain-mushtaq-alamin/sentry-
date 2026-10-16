@@ -29,14 +29,13 @@ export class ActionFirewall {
     const startTime = Date.now();
 
     // 0a. Block actions targeting Sentry UI or dangerous schemes (Bypass vector protection)
+    const dangerousScheme = (u: string) => /^(sentry|chrome|file|javascript|devtools):/.test(u);
+    const destination = (action.value || action.target || '').toLowerCase();
     const rawUrl = (action.url || '').toLowerCase();
     const rawTarget = (action.target || '').toLowerCase();
+
     const isDangerousTarget =
-      rawUrl.startsWith('sentry://') ||
-      rawUrl.startsWith('chrome://') ||
-      rawUrl.startsWith('file://') ||
-      rawUrl.startsWith('javascript:') ||
-      rawUrl.startsWith('devtools://') ||
+      (action.type === 'navigate' ? dangerousScheme(destination) : dangerousScheme(rawUrl)) ||
       rawTarget.includes('#sentry-') ||
       rawTarget.includes('.sentry-') ||
       rawTarget.includes('sentry-ui');
