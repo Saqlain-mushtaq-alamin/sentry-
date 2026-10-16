@@ -110,10 +110,12 @@ export class ActionParser {
 
     const fallbackReason = thought !== 'No thought provided' ? thought : (type === 'navigate' && (value || target) ? `Navigating to ${value || target}` : 'Executing requested action');
     const reason = String(action['reason'] ?? fallbackReason);
+    const answer = action['answer'] !== undefined ? String(action['answer']) : (parsed['answer'] !== undefined ? String(parsed['answer']) : undefined);
+    const memory = parsed['memory'] !== undefined ? String(parsed['memory']) : (action['memory'] !== undefined ? String(action['memory']) : undefined);
 
     return {
       ok: true,
-      action: { type, target, value, reason, thought },
+      action: { type, target, value, reason, thought, answer, memory },
     };
   }
 
