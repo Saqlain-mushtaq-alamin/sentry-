@@ -7,50 +7,89 @@
 
 import { AgentContext, PageSnapshot } from '../../../shared/types';
 
-export const PROMPT_VERSION = 'v1.0';
+export const PROMPT_VERSION = 'v1.1';
 
 export function buildSystemPrompt(context: AgentContext): string {
-  return `You are Sentry, an AI assistant embedded in a web browser. Your job is to help users accomplish tasks on the web safely and transparently.
+  return `You are Sentry, an AI browser assistant. Your job is to help users accomplish tasks on the web safely and accurately.
 
-## Your Capabilities
-- You receive a simplified DOM snapshot of the current page and an interactive elements list.
-- You reference elements by their [index] number from the interactive elements list.
-- You can propose actions: click, type, scroll, navigate, select, goBack, goForward, reload.
-- You can work across multiple tabs if needed.
-- Use "done" when the task is complete.
-- Use "ask_user" when you need clarification or the user must do something.
+## Capabilities & Actions
+- You observe the current page state and interactive elements provided in the user message.
+- Allowed actions: click, type, press, scroll, navigate, select, goBack, goForward, reload, done, ask_user.
+- Target = the number from the element list. Never invent indexes. If the element isn't listed, scroll.
+- Use "press" with value "Enter" to submit forms or search inputs.
+- Use "done" only when the goal is visibly achieved.
 
-## Critical Rules
-1. NEVER attempt actions without observing the page first.
-2. If the user's instruction asks for information, facts, dates, summaries, answers, or data that can be found in the "Visible Page Text" above, READ the text carefully and IMMEDIATELY return action "done" with your complete, detailed answer in the "reason" field.
-3. Do NOT scroll or navigate away if the answer is already visible on the current page.
-4. If you need to search or navigate on the page, use specific input elements or links.
-5. For "done" actions, put your final answer, summary, or report directly in the "reason" field.
-6. If an element or action fails, try an alternative element or conclude with what information you have.
+## Execution Rules
+1. NEVER guess or act without checking the interactive elements and page content.
+2. If the task needs an action (search, click, fill), do it. Return done only when the goal is visibly achieved. If it's a question about the page, answer from the text.
+3. Target must be the exact numeric index from the [index] list. Never invent indexes or guess selectors. If the needed element is not visible, use scroll (value: "down" or "up").
+4. For action "done", put your comprehensive final answer in the "answer" field.
+5. Use "memory" to store short key notes you must carry over to the next step.
 
-## Response Format — ALWAYS return valid JSON
+## Response Format — Valid JSON only (no markdown fences)
 {
-  "thought": "Your step-by-step reasoning about the current page state and what you should do next",
+  "thought": "Brief step-by-step reasoning about the page state and next step",
+  "memory": "Optional notes to remember for subsequent steps",
   "action": {
-    "type": "click | type | scroll | navigate | select | goBack | goForward | reload | done | ask_user",
-    "target": "[element index as integer] or CSS selector string",
-    "value": "text to type or option value to select (omit if not needed)",
-    "reason": "One concise sentence explaining why this action is needed"
+    "type": "click | type | press | scroll | navigate | select | goBack | goForward | reload | done | ask_user",
+    "target": "element index number as string, e.g. \\"4\\"",
+    "value": "text to type, key to press, or scroll direction (up/down/left/right)",
+    "reason": "Short explanation of this action",
+    "answer": "Final comprehensive answer (used only when type is done)"
   }
 }
 
-## Important
-- When the user asks to summarize, explain, or answer questions (like finding dates, facts, names, or history) about the current page, READ the provided Visible Page Text and return action type "done" immediately with your comprehensive answer in the "reason" field.
-- "target" for click/type/select: use the integer index of the element from the interactive elements list.
-- "target" for navigate: use the URL string (prefer full URLs or absolute paths).
-- "value" for scroll: use "up", "down", "left", or "right".
-- Do NOT wrap JSON in markdown code fences.
+## Examples
+
+Example 1 — Typing into a search box:
+{
+  "thought": "I need to search for 'weather in Tokyo'. Element [3] is the search input.",
+  "memory": "Searching for weather in Tokyo",
+  "action": {
+    "type": "type",
+    "target": "3",
+    "value": "weather in Tokyo",
+    "reason": "Type search query into the search box"
+  }
+}
+
+Example 2 — Pressing Enter to submit search:
+{
+  "thought": "The query has been typed into the search box. Now submitting with Enter.",
+  "memory": "Submitted search, waiting for results",
+  "action": {
+    "type": "press",
+    "value": "Enter",
+    "reason": "Press Enter to submit search"
+  }
+}
+
+Example 3 — Clicking a link by index:
+{
+  "thought": "Search results loaded. Element [12] is the first organic result link.",
+  "memory": "Navigating to weather forecast page",
+  "action": {
+    "type": "click",
+    "target": "12",
+    "reason": "Click on the first weather forecast result link"
+  }
+}
+
+Example 4 — Task completed with an answer:
+{
+  "thought": "The current weather is clearly displayed on the page as 18°C and Sunny.",
+  "action": {
+    "type": "done",
+    "reason": "Found the requested weather information",
+    "answer": "The current weather in Tokyo is 18°C and Sunny with 45% humidity."
+  }
+}
 
 ## Current Context
 - Current URL: ${context.currentUrl}
 - User's Instruction: ${context.userInstruction}
 - Current Step: ${context.currentStep}${context.totalSteps > 0 ? ` of ~${context.totalSteps}` : ''}
-${context.previousActions ? `- Recent Actions: ${context.previousActions}` : ''}
+${context.memory ? `- Memory: ${context.memory}\n` : ''}${context.previousActions ? `- Recent Actions: ${context.previousActions}` : ''}
 
 Prompt Version: ${PROMPT_VERSION}`;
 }
@@ -78,7 +117,7 @@ export function formatSnapshotForModel(
     const fullText = snapshot.visibleText.trim();
     // Default text allowance: up to ~3,200 tokens (12,800 chars)
     const baseCharLimit = 12800;
-    let mainExcerpt = fullText.slice(0, baseCharLimit);
+    const mainExcerpt = fullText.slice(0, baseCharLimit);
 
     lines.push('### Visible Page Text');
     lines.push(mainExcerpt);
@@ -120,15 +159,16 @@ export function formatSnapshotForModel(
 
   const remainingTokens = Math.max(1200, maxTokens - visibleTokensUsed);
 
-  // Group elements: inputs, buttons, selects first; then links with labels
-  const actionable: typeof snapshot.interactiveElements = [];
-  const links: typeof snapshot.interactiveElements = [];
+  // Group elements: in-view first, actionable inputs/buttons before links
+  const actionableInView: typeof snapshot.interactiveElements = [];
+  const linksInView: typeof snapshot.interactiveElements = [];
+  const actionableOffScreen: typeof snapshot.interactiveElements = [];
+  const linksOffScreen: typeof snapshot.interactiveElements = [];
 
   for (const el of snapshot.interactiveElements) {
     const tag = (el.tag || '').toLowerCase();
     const role = (el.role || '').toLowerCase();
-
-    if (
+    const isActionable = (
       tag === 'input' ||
       tag === 'button' ||
       tag === 'select' ||
@@ -139,15 +179,19 @@ export function formatSnapshotForModel(
       role === 'checkbox' ||
       role === 'radio' ||
       role === 'combobox'
-    ) {
-      actionable.push(el);
-    } else if (el.label && el.label.trim().length > 1) {
-      // Discard empty or single-character links
-      links.push(el);
+    );
+    const hasLabel = el.label && el.label.trim().length > 0;
+
+    if (el.inView !== false) {
+      if (isActionable) actionableInView.push(el);
+      else if (hasLabel) linksInView.push(el);
+    } else {
+      if (isActionable) actionableOffScreen.push(el);
+      else if (hasLabel) linksOffScreen.push(el);
     }
   }
 
-  const prioritizedList = [...actionable, ...links];
+  const prioritizedList = [...actionableInView, ...linksInView, ...actionableOffScreen, ...linksOffScreen];
   let elTokens = 0;
   let count = 0;
   const MAX_ELEMENTS = 60;
@@ -157,7 +201,9 @@ export function formatSnapshotForModel(
       lines.push(`... (${prioritizedList.length - count} more elements omitted)`);
       break;
     }
-    const line = `[${el.index}] ${el.tag.toUpperCase()} | role:${el.role} | label:"${el.label}"${el.value ? ` | value:"${el.value}"` : ''}${el.isEnabled ? '' : ' | DISABLED'}`;
+    const offScreen = el.inView === false ? ' | [off-screen]' : '';
+    const hrefInfo = el.href ? ` | href:"${el.href}"` : '';
+    const line = `[${el.index}] ${el.tag.toUpperCase()}${el.role ? ` | role:${el.role}` : ''} | label:"${el.label}"${hrefInfo}${el.value ? ` | value:"${el.value}"` : ''}${el.isEnabled ? '' : ' | DISABLED'}${offScreen}`;
     elTokens += Math.ceil(line.length / 4);
     if (elTokens > remainingTokens) {
       lines.push('... (more elements truncated to fit context window)');
