@@ -3,7 +3,7 @@ import { AgentTask, ActionLogEntry } from '../../shared/types';
 import { OllamaAdapter } from './adapters/ollama-adapter';
 
 export interface RouterConfig {
-  localModel: string | null;       // e.g., 'llama3.1:8b'
+  localModel: string | null;       // e.g., 'qwen3:8b'
   cloudModel: string | null;       // e.g., 'gpt-4o'
   routingMode: 'local_only' | 'cloud_only' | 'auto' | 'prefer_local';
   cloudApiKey?: string;
@@ -28,19 +28,18 @@ export class ModelRouter {
   private cloudAdapter: ModelAdapter;
 
   constructor(private config: RouterConfig, cloudAdapter: ModelAdapter) {
-    this.localAdapter = new OllamaAdapter({ modelId: config.localModel || 'llama3.1:8b' });
+    this.localAdapter = new OllamaAdapter({ modelId: config.localModel || 'qwen3:8b' });
     this.cloudAdapter = cloudAdapter; 
   }
 
   public updateConfig(config: RouterConfig) {
     this.config = config;
-    this.localAdapter.modelId = config.localModel || 'llama3.1:8b';
+    this.localAdapter.modelId = config.localModel || 'qwen3:8b';
   }
 
   public setCloudAdapter(adapter: ModelAdapter) {
     this.cloudAdapter = adapter;
   }
-
 
   public async route(context: RoutingContext): Promise<RoutingDecision> {
     const isLocalAvailable = await this.localAdapter.isAvailable();
@@ -68,23 +67,34 @@ export class ModelRouter {
       );
     }
 
-    const complexity = this.estimateComplexity(context);
-
     if (mode === 'prefer_local') {
       if (isLocalAvailable) {
-        return this.makeDecision(this.localAdapter, `Prefer local mode active. Task complexity: ${complexity}.`, false);
+        return this.makeDecision(this.localAdapter, `Prefer local mode active (${this.localAdapter.modelId}).`, false);
       }
       return this.makeDecision(this.cloudAdapter, 'Prefer local mode, but local model is unavailable. Falling back to cloud.', true);
     }
 
-    // Auto mode
-    if (complexity === 'simple' || complexity === 'moderate' || !hasRealCloud) {
-      if (isLocalAvailable) {
-        return this.makeDecision(this.localAdapter, `Auto mode: Task is ${complexity}, using local model (${this.localAdapter.modelId}).`, false);
-      }
+    // Auto mode: start local, escalate to cloud after 2 consecutive failed steps
+    const recent = context.actionLog.slice(-2);
+    const twoConsecutiveFailures = recent.length === 2 && recent.every(e => !e.executed || e.result?.success === false);
+
+    if (twoConsecutiveFailures && hasRealCloud) {
+      return this.makeDecision(
+        this.cloudAdapter,
+        'Auto mode: 2 consecutive failed steps detected with local model, escalating to cloud model.',
+        true,
+      );
     }
 
-    return this.makeDecision(this.cloudAdapter, `Auto mode: Task is ${complexity} or local unavailable, using cloud model.`, true);
+    if (isLocalAvailable) {
+      return this.makeDecision(
+        this.localAdapter,
+        `Auto mode: Starting with local model (${this.localAdapter.modelId}).`,
+        false,
+      );
+    }
+
+    return this.makeDecision(this.cloudAdapter, 'Auto mode: Local model unavailable, using cloud model.', true);
   }
 
   private estimateComplexity(context: RoutingContext): 'simple' | 'moderate' | 'complex' {
