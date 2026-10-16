@@ -277,3 +277,154 @@ describe('formatSnapshotForModel', () => {
     expect(formatted).toContain('March 25, 1995');
   });
 });
+
+// ─── P0-P3 Enhancements Tests ────────────────────────────────────────────────
+
+describe('ActionParser — P0/P1/P2 Actions', () => {
+  const parser = new ActionParser();
+
+  it('parses press action and enter alias', () => {
+    const raw = JSON.stringify({
+      thought: 'Submitting query',
+      action: { type: 'press', value: 'Enter', reason: 'submit' }
+    });
+    const res = parser.parse(raw);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.action.type).toBe('press');
+      expect(res.action.value).toBe('Enter');
+    }
+
+    const rawAlias = JSON.stringify({
+      thought: 'Submitting',
+      action: { type: 'enter', reason: 'press enter' }
+    });
+    const resAlias = parser.parse(rawAlias);
+    expect(resAlias.ok).toBe(true);
+    if (resAlias.ok) {
+      expect(resAlias.action.type).toBe('press');
+    }
+  });
+
+  it('parses answer and memory fields', () => {
+    const raw = JSON.stringify({
+      thought: 'Done task',
+      memory: 'Saved token for next step',
+      action: {
+        type: 'done',
+        reason: 'finished',
+        answer: 'The weather is 20C and sunny'
+      }
+    });
+    const res = parser.parse(raw);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.action.answer).toBe('The weather is 20C and sunny');
+      expect(res.action.memory).toBe('Saved token for next step');
+    }
+  });
+});
+
+describe('ContextManager — Detailed Failure Reporting', () => {
+  const cm = new ContextManager();
+  const task: AgentTask = {
+    id: 't-fail',
+    tabId: 'tab-1',
+    instruction: 'Complete form',
+    context: { currentUrl: 'https://test.com', userInstruction: 'Complete form', currentStep: 1, totalSteps: 5 },
+    createdAt: Date.now()
+  };
+  const emptySnapshot: PageSnapshot = {
+    url: 'https://test.com', title: 'Test', timestamp: Date.now(),
+    dom: { tag: 'body', children: [] }, accessibilityTree: [], visibleText: 'Form',
+    forms: [], links: [], interactiveElements: [], estimatedTokenCount: 10
+  };
+
+  it('records execution failure with error text instead of generic blocked', () => {
+    const failedEntry: ActionLogEntry = {
+      action: {
+        id: 'a1', type: 'click', target: '#nonexistent', riskTier: RiskTier.LOW,
+        reason: 'click button', timestamp: Date.now(), tabId: 'tab-1', url: 'https://test.com'
+      },
+      decision: {
+        actionId: 'a1', allowed: true, requiresConfirmation: false,
+        riskTier: RiskTier.LOW,
+        classification: { tier: RiskTier.LOW, reasons: [], policyRulesFired: [], confidence: 1 },
+        siteTrust: 0 as any, explanation: '', detailedReason: ''
+      },
+      executed: false,
+      result: { success: false, error: 'Element not found: #nonexistent', duration: 10 },
+      timestamp: Date.now()
+    };
+
+    const msgs = cm.buildMessageHistory(task, emptySnapshot, [failedEntry], 128_000);
+    const histMsg = msgs.find(m => m.content.includes('FAILED: Element not found'));
+    expect(histMsg).toBeDefined();
+    expect(histMsg?.role).toBe('user');
+  });
+});
+
+describe('ModelRouter — Escalation to Cloud on Consecutive Failures', () => {
+  it('escalates to cloud adapter after 2 consecutive failed steps in auto mode', async () => {
+    const { ModelRouter } = await import('../../../src/main/agent/model-router');
+    const mockLocal = {
+      providerId: 'ollama',
+      modelId: 'qwen3:8b',
+      isAvailable: vi.fn().mockResolvedValue(true),
+      getContextLimit: () => 16384,
+      estimateTokens: () => 10,
+      chat: vi.fn(),
+    };
+    const mockCloud = {
+      providerId: 'openai',
+      modelId: 'gpt-4o',
+      isAvailable: vi.fn().mockResolvedValue(true),
+      getContextLimit: () => 128_000,
+      estimateTokens: () => 10,
+      chat: vi.fn(),
+    };
+
+    const router = new ModelRouter({
+      localModel: 'qwen3:8b',
+      cloudModel: 'gpt-4o',
+      routingMode: 'auto',
+    }, mockCloud as any);
+    (router as any).localAdapter = mockLocal;
+
+    const task: AgentTask = {
+      id: 't-route', tabId: 'tab-1', instruction: 'Search something',
+      context: { currentUrl: 'https://test.com', userInstruction: 'Search', currentStep: 3, totalSteps: 5 },
+      createdAt: Date.now()
+    };
+
+    // 0 or 1 failure -> stays local
+    const decisionInitial = await router.route({
+      task, actionLog: [], pageContentLength: 500
+    });
+    expect(decisionInitial.isCloud).toBe(false);
+
+    // 2 consecutive failures -> escalates to cloud
+    const failedLog: ActionLogEntry[] = [
+      {
+        action: { id: 'a1', type: 'click', target: '#a', riskTier: RiskTier.LOW, reason: 'r', timestamp: 1, tabId: '1', url: 'u' },
+        decision: { actionId: 'a1', allowed: true, requiresConfirmation: false, riskTier: RiskTier.LOW, classification: {} as any, siteTrust: 0 as any, explanation: '', detailedReason: '' },
+        executed: false,
+        result: { success: false, error: 'Failed', duration: 10 },
+        timestamp: 1
+      },
+      {
+        action: { id: 'a2', type: 'click', target: '#b', riskTier: RiskTier.LOW, reason: 'r', timestamp: 2, tabId: '1', url: 'u' },
+        decision: { actionId: 'a2', allowed: true, requiresConfirmation: false, riskTier: RiskTier.LOW, classification: {} as any, siteTrust: 0 as any, explanation: '', detailedReason: '' },
+        executed: false,
+        result: { success: false, error: 'Failed again', duration: 10 },
+        timestamp: 2
+      }
+    ];
+
+    const decisionEscalated = await router.route({
+      task, actionLog: failedLog, pageContentLength: 500
+    });
+    expect(decisionEscalated.isCloud).toBe(true);
+    expect(decisionEscalated.reason).toContain('2 consecutive failed steps');
+  });
+});
