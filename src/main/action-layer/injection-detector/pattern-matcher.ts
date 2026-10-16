@@ -49,17 +49,22 @@ export function detectInjection(text: string, sourceLocation: string): Detection
   const matchedPatterns: string[] = [];
   let totalConfidence = 0;
   let maxConfidence = 0;
+  let evidence = '';
 
   const normalized = normalizeText(text);
 
   for (const pattern of INJECTION_PATTERNS) {
-    if (pattern.regex.test(text) || pattern.regex.test(normalized)) {
+    const m = text.match(pattern.regex) ?? normalized.match(pattern.regex);
+    if (m) {
       if (!matchedPatterns.includes(pattern.id)) {
         matchedPatterns.push(pattern.id);
         totalConfidence += pattern.confidence;
         if (pattern.confidence > maxConfidence) {
           maxConfidence = pattern.confidence;
         }
+      }
+      if (!evidence && m.index !== undefined) {
+        evidence = text.slice(Math.max(0, m.index - 80), m.index + m[0].length + 80);
       }
     }
   }
@@ -72,7 +77,7 @@ export function detectInjection(text: string, sourceLocation: string): Detection
     isInjection,
     confidence: Math.min(1.0, maxConfidence), // cap at 1.0
     matchedPatterns,
-    sourceText: text,
+    sourceText: isInjection && evidence ? evidence : text,
     sourceLocation,
     explanation: isInjection 
       ? `Found prompt injection patterns: ${matchedPatterns.join(', ')}` 
