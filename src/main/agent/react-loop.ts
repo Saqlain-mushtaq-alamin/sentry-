@@ -193,9 +193,9 @@ export class ReActLoop {
           chatResponse = await this.adapter.chat({
             systemPrompt: systemPromptText,
             messages,
-            temperature: 0.3,
+            temperature: 0.1,
             responseFormat: 'json',
-            maxTokens: 512,
+            maxTokens: 768,
           });
         } catch (err) {
           return this.fail(`Model call failed: ${err}`, actionLog, stepCount);
@@ -231,6 +231,10 @@ export class ReActLoop {
 
       const parsedAction = parseResult.action;
 
+      if (parsedAction.memory) {
+        task.context.memory = parsedAction.memory;
+      }
+
       // ── DONE / ASK_USER ──────────────────────────────────────────────────
       if (parsedAction.type === 'done') {
         this.sm.transition(TaskState.COMPLETED);
@@ -238,7 +242,7 @@ export class ReActLoop {
           state: TaskState.COMPLETED,
           actionLog,
           totalSteps: stepCount,
-          summary: parsedAction.reason,
+          summary: parsedAction.answer || parsedAction.reason,
         };
       }
 
