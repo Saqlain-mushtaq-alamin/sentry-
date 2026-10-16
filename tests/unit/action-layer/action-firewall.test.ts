@@ -168,4 +168,44 @@ describe('ActionFirewall', () => {
     expect(logs.length).toBe(1);
     expect(logs[0].actionId).toBe('test-action-1');
   });
+
+  it('allows navigation from sentry://newtab to external web URL', async () => {
+    vi.spyOn(classifier, 'classifyAction').mockReturnValue({
+      tier: RiskTier.LOW, reasons: [], policyRulesFired: [], confidence: 1
+    });
+
+    const action: ProposedAction = {
+      id: 'nav-test-1',
+      type: 'navigate',
+      target: 'https://google.com',
+      value: 'https://google.com',
+      riskTier: RiskTier.LOW,
+      reason: 'Go to Google',
+      timestamp: Date.now(),
+      tabId: 'tab-1',
+      url: 'sentry://newtab',
+    };
+
+    const decision = await firewall.evaluateAction(action, mockSnapshot);
+    expect(decision.allowed).toBe(true);
+    expect(decision.riskTier).not.toBe(RiskTier.CRITICAL);
+  });
+
+  it('blocks navigation targeting internal sentry:// or chrome:// destinations', async () => {
+    const action: ProposedAction = {
+      id: 'nav-test-2',
+      type: 'navigate',
+      target: 'sentry://settings',
+      value: 'sentry://settings',
+      riskTier: RiskTier.LOW,
+      reason: 'Open settings',
+      timestamp: Date.now(),
+      tabId: 'tab-1',
+      url: 'https://example.com',
+    };
+
+    const decision = await firewall.evaluateAction(action, mockSnapshot);
+    expect(decision.allowed).toBe(false);
+    expect(decision.riskTier).toBe(RiskTier.CRITICAL);
+  });
 });
