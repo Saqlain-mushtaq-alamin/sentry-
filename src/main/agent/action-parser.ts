@@ -9,7 +9,7 @@
 import { ParsedModelAction } from '../../shared/types';
 
 const VALID_ACTION_TYPES = new Set([
-  'click', 'type', 'clear', 'select', 'scroll', 'hover',
+  'click', 'type', 'press', 'clear', 'select', 'scroll', 'hover',
   'navigate', 'goBack', 'goForward', 'reload', 'waitFor',
   'screenshot', 'done', 'ask_user',
 ]);
@@ -18,6 +18,10 @@ const ACTION_TYPE_MAP: Record<string, string> = {
   click: 'click',
   type: 'type',
   fill: 'type',
+  press: 'press',
+  key: 'press',
+  keypress: 'press',
+  enter: 'press',
   clear: 'clear',
   select: 'select',
   scroll: 'scroll',
