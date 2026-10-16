@@ -28,6 +28,7 @@ export class ContextManager {
     });
 
     // 2. Summarise previous action log (most recent 5, older ones summarised)
+    let historySection = '';
     if (actionLog.length > 0) {
       const recentLog = actionLog.slice(-5);
       const olderCount = actionLog.length - recentLog.length;
@@ -37,18 +38,16 @@ export class ContextManager {
         historyLines.push(`(${olderCount} earlier actions omitted for brevity)`);
       }
       for (const entry of recentLog) {
-        const status = entry.executed ? '✅ executed' : '❌ blocked';
-        historyLines.push(
-          `• [${status}] ${entry.action.type} on "${entry.action.target}"` +
-          ` — ${entry.action.reason}` +
-          (entry.decision.explanation ? ` (${entry.decision.explanation})` : ''),
-        );
+        const res = entry.result;
+        const outcome = res?.success === false
+          ? `FAILED: ${res.error}`
+          : !entry.executed ? `BLOCKED: ${entry.decision.explanation}` : 'ok';
+        const nav = res?.beforeSnapshot && res?.afterSnapshot && res.beforeSnapshot.url !== res.afterSnapshot.url
+          ? ` → page is now ${res.afterSnapshot.url}` : '';
+        historyLines.push(`• ${entry.action.type} "${entry.action.target}" — ${outcome}${nav}`);
       }
 
-      messages.push({
-        role: 'assistant',
-        content: `Previous steps:\n${historyLines.join('\n')}`,
-      });
+      historySection = `\n\nPrevious steps:\n${historyLines.join('\n')}`;
     }
 
     // 3. Current page snapshot (most important — always include)
@@ -59,7 +58,7 @@ export class ContextManager {
     );
     messages.push({
       role: 'user',
-      content: `Current page state:\n${snapshotText}\n\nWhat is your next action?`,
+      content: `Current page state:\n${snapshotText}${historySection}\n\nWhat is your next action?`,
     });
 
     return messages;
