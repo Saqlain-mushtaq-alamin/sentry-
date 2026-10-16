@@ -61,84 +61,97 @@ export class PageObserver {
   public async getPageSnapshot(tabId: string): Promise<PageSnapshot> {
     const start = Date.now();
 
-    const [documentResult, axResult, metaResult] = await Promise.all([
-      this.cdp.send<{ root: CdpDomNode }>(tabId, 'DOM.getDocument', { depth: -1, pierce: true }),
-      this.cdp.send<{ nodes: CdpAXNode[] }>(tabId, 'Accessibility.getFullAXTree'),
-      this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
-        expression: 'JSON.stringify({ url: location.href, title: document.title, innerText: (document.body ? document.body.innerText.slice(0, 30000) : "") })',
-        returnByValue: true,
-      }),
-    ]);
+    const COLLECT_SCRIPT = `(() => {
+      document.querySelectorAll('[data-sentry-id]').forEach(e => e.removeAttribute('data-sentry-id'));
+      const sel = 'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=link],[role=tab],[role=menuitem],[onclick],[contenteditable=true],summary';
+      const out = []; let i = 0;
+      for (const el of document.querySelectorAll(sel)) {
+        const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        if (r.width < 4 || r.height < 4 || cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+        const inView = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+        const label = (el.getAttribute('aria-label') || el.innerText || el.value || el.placeholder ||
+          el.title || el.alt || el.name || (el.labels && el.labels[0] && el.labels[0].innerText) || '')
+          .trim().replace(/\\s+/g, ' ').slice(0, 80);
+        el.setAttribute('data-sentry-id', String(i));
+        out.push({
+          index: i,
+          tag: el.tagName.toLowerCase(),
+          type: el.type || undefined,
+          role: el.getAttribute('role') || undefined,
+          label,
+          href: el.href || undefined,
+          selector: '[data-sentry-id="' + i + '"]',
+          inView,
+          isVisible: true,
+          isEnabled: !el.disabled,
+          boundingBox: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }
+        });
+        if (++i >= 150) break;
+      }
+      return JSON.stringify({
+        url: location.href,
+        title: document.title,
+        innerText: (document.body ? document.body.innerText.slice(0, 30000) : ''),
+        elements: out
+      });
+    })()`;
 
     let url = '';
     let title = '';
     let bodyInnerText = '';
+    let interactiveElements: InteractiveElement[] = [];
+
+    const metaResult = await this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
+      expression: COLLECT_SCRIPT,
+      returnByValue: true,
+    });
+
     try {
       const meta = JSON.parse(metaResult?.result?.value ?? '{}');
       url = meta.url ?? '';
       title = meta.title ?? '';
       bodyInnerText = (meta.innerText ?? '').trim();
+      if (Array.isArray(meta.elements) && meta.elements.length > 0) {
+        interactiveElements = meta.elements;
+        interactiveElements.sort((a, b) => (b.inView ? 1 : 0) - (a.inView ? 1 : 0));
+      }
     } catch {
       // ignore parse errors
     }
 
-    const interactiveElements: InteractiveElement[] = [];
-    this.interactiveIndex = 0;
+    let simplifiedDom: SimplifiedDOM = { tag: 'body', children: [] };
 
-    const simplifiedDom = documentResult?.root
-      ? this.simplifyNode(documentResult.root, interactiveElements)
-      : { tag: 'body', children: [] };
-
-    const accessibilityTree = this.convertAXNodes(axResult?.nodes ?? []);
-    const domText = this.extractVisibleText(simplifiedDom);
-    const visibleText = bodyInnerText && bodyInnerText.length > domText.length ? bodyInnerText : (domText || bodyInnerText);
-    const forms = this.extractForms(simplifiedDom);
-    const links = this.extractLinks(simplifiedDom);
-
-    // Populate real bounding boxes for interactive elements
-    if (interactiveElements.length > 0) {
-      try {
-        const selectors = interactiveElements.map(el => el.selector);
-        const rectsResult = await this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
-          expression: `(() => {
-            const selectors = ${JSON.stringify(selectors)};
-            return JSON.stringify(selectors.map(s => {
-              try {
-                const el = document.querySelector(s);
-                if (!el) return null;
-                const r = el.getBoundingClientRect();
-                return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) };
-              } catch { return null; }
-            }));
-          })()`,
-          returnByValue: true
-        });
-        if (rectsResult?.result?.value) {
-          const rects = JSON.parse(rectsResult.result.value);
-          rects.forEach((rect: BoundingBox | null, idx: number) => {
-            if (rect && interactiveElements[idx]) {
-              interactiveElements[idx]!.boundingBox = rect;
-            }
-          });
-        }
-      } catch {
-        // Fallback: continue with default boxes if CDP batch eval fails
+    // Fallback: if elements were not collected via script (e.g. mock CDP test environments), parse via DOM.getDocument
+    if (interactiveElements.length === 0) {
+      this.interactiveIndex = 0;
+      const documentResult = await this.cdp.send<{ root: CdpDomNode }>(tabId, 'DOM.getDocument', { depth: -1, pierce: true });
+      if (documentResult?.root) {
+        simplifiedDom = this.simplifyNode(documentResult.root, interactiveElements);
       }
     }
+
+    const visibleText = bodyInnerText;
+    const links: LinkInfo[] = interactiveElements
+      .filter(el => !!el.href)
+      .map(el => ({
+        href: el.href!,
+        text: el.label,
+        selector: el.selector,
+        isExternal: !el.href!.includes(url),
+      }));
 
     const snapshot: PageSnapshot = {
       url,
       title,
       timestamp: Date.now(),
       dom: simplifiedDom,
-      accessibilityTree,
+      accessibilityTree: [],
       visibleText,
-      forms,
+      forms: [],
       links,
       interactiveElements,
       estimatedTokenCount: Math.ceil(visibleText.length / 4),
     };
-
 
     console.debug(`[PageObserver] snapshot in ${Date.now() - start}ms`);
 
