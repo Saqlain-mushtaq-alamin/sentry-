@@ -188,6 +188,8 @@ export interface InteractiveElement {
   isVisible: boolean;
   isEnabled: boolean;
   value?: string;       // Current value
+  href?: string;
+  inView?: boolean;
 }
 
 /** Full page snapshot — the agent's view of the current page state */
@@ -220,6 +222,7 @@ export interface A11yNode {
 export type ActionType =
   | 'click'
   | 'type'
+  | 'press'
   | 'clear'
   | 'select'
   | 'scroll'
@@ -496,6 +499,7 @@ export interface AgentContext {
   currentStep: number;
   totalSteps: number;
   previousActions?: string;
+  memory?: string;
 }
 
 /** An agent task description */
@@ -527,11 +531,13 @@ export interface AgentError {
 
 /** What the model proposes after parsing its JSON output */
 export interface ParsedModelAction {
-  type: string;         // click | type | scroll | navigate | select | done | ask_user
+  type: string;         // click | type | press | scroll | navigate | select | done | ask_user
   target?: string;
   value?: string;
   reason: string;
   thought: string;
+  answer?: string;
+  memory?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
