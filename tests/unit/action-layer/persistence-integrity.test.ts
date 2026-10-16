@@ -88,7 +88,7 @@ describe('Persistence and Security Integrity Tests', () => {
       const cfg = store2.getModelConfig();
       expect(cfg.cloudModel).toBe('claude-sonnet-5-5');
       expect(cfg.routingMode).toBe('cloud_only');
-      expect(cfg.localModel).toBe('llama3.1:8b'); // default preserved
+      expect(cfg.localModel).toBe('qwen3:8b'); // default preserved
     });
 
     it('forgets site history cleanly', () => {
