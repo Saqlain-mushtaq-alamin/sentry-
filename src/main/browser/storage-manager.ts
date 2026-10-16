@@ -10,7 +10,7 @@ export interface ModelConfig {
 }
 
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  localModel: 'llama3.1:8b',
+  localModel: 'qwen3:8b',
   cloudModel: 'gpt-4o',
   routingMode: 'auto',
 };

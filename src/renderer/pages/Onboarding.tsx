@@ -45,7 +45,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onTryTask })
       if (modelChoice) {
         const currentConfig = await window.sentry.agent.getModelConfig();
         await window.sentry.agent.setModelConfig({
-          localModel: currentConfig?.localModel || 'llama3.1:8b',
+          localModel: currentConfig?.localModel || 'qwen3:8b',
           cloudModel: currentConfig?.cloudModel || 'gpt-4o',
           routingMode: modelChoice,
         });

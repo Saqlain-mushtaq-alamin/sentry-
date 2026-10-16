@@ -12,7 +12,7 @@ interface CloudIndicatorProps {
 export const CloudIndicator: React.FC<CloudIndicatorProps> = ({ 
   isCloud, 
   provider = 'Local', 
-  model = 'llama3.1:8b',
+  model = 'qwen3:8b',
   estimatedTokens = 0,
   domain = 'localhost'
 }) => {

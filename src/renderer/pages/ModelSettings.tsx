@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/Badge';
 
 export const ModelSettings: React.FC = () => {
   const [routingMode, setRoutingMode] = useState('auto');
-  const [localModel, setLocalModel] = useState('llama3.1:8b');
+  const [localModel, setLocalModel] = useState('qwen3:8b');
   const [cloudModel, setCloudModel] = useState('gpt-4o');
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaOnline, setOllamaOnline] = useState<boolean | null>(null);
@@ -26,7 +26,7 @@ export const ModelSettings: React.FC = () => {
       sentry.agent.getModelConfig().then((cfg: any) => {
         if (cfg) {
           setRoutingMode(cfg.routingMode || 'auto');
-          setLocalModel(cfg.localModel || 'llama3.1:8b');
+          setLocalModel(cfg.localModel || 'qwen3:8b');
           setCloudModel(cfg.cloudModel || 'gpt-4o');
         }
       });
@@ -272,7 +272,7 @@ export const ModelSettings: React.FC = () => {
           </div>
         ) : (
           <p style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-            No Ollama models detected. Run <code style={{ color: 'var(--accent)' }}>ollama pull llama3.1:8b</code> in your terminal.
+            No Ollama models detected. Run <code style={{ color: 'var(--accent)' }}>ollama pull qwen3:8b</code> in your terminal.
           </p>
         )}
       </Card>
