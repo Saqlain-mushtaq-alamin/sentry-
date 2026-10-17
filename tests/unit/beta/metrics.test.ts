@@ -89,11 +89,14 @@ describe('BetaMetricsCollector', () => {
     expect(snap.crashesPerSession).toBe(0);
   });
 
-  it('tracks crashes per session', () => {
-    collector.startSession();
+  it('tracks crashes per session across launches', () => {
     collector.startSession();
     collector.recordCrash();
-    const snap = collector.getSnapshot();
+    // A second launch on the same store counts another daily-active session.
+    const secondLaunch = make();
+    secondLaunch.startSession();
+
+    const snap = secondLaunch.getSnapshot();
     expect(snap.crashes).toBe(1);
     expect(snap.crashesPerSession).toBe(0.5);
   });
@@ -112,15 +115,18 @@ describe('BetaMetricsCollector', () => {
     const day1 = 1_700_000_000_000;
     const day2 = day1 + 24 * 60 * 60 * 1000;
     let now = day1;
-    const multi = make(() => now);
 
-    multi.startSession();
-    multi.recordEvent('task-started');
+    // Two separate launches (a session is counted once per collector instance).
+    const launch1 = make(() => now);
+    launch1.startSession();
+    launch1.recordEvent('task-started');
+
     now = day2;
-    multi.startSession();
-    multi.recordEvent('task-completed');
+    const launch2 = make(() => now);
+    launch2.startSession();
+    launch2.recordEvent('task-completed');
 
-    const snap = multi.getSnapshot();
+    const snap = launch2.getSnapshot();
     expect(snap.sessionCount).toBe(2);
     expect(snap.distinctActiveDays).toBe(2);
     expect(snap.tasksStarted).toBe(1);

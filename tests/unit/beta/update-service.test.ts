@@ -126,7 +126,7 @@ describe('UpdateService', () => {
     fake.emit('update-available', { version: '0.2.0' });
     await pending;
 
-    const status = await service.checkForUpdates();
+    const status = service.getStatusEvent();
     expect(status.state).toBe('available');
     expect(status.version).toBe('0.2.0');
     expect(service.getLastCheck()).toBe(clock);
@@ -159,8 +159,11 @@ describe('UpdateService', () => {
     const service = makeService();
     const status = await service.checkForUpdates();
     expect(status.state).toBe('error');
-    expect(status.error).toContain('offline');
     expect(service.getLastCheck()).toBe(clock);
+    // The error detail travels on the broadcast, not getStatusEvent().
+    const last = send.mock.calls.at(-1)?.[1] as BetaUpdateStatusEvent;
+    expect(last.state).toBe('error');
+    expect(last.error).toContain('offline');
   });
 
   it('reports updater "error" events as error state', async () => {
@@ -171,8 +174,9 @@ describe('UpdateService', () => {
     await pending;
     const status = service.getStatusEvent();
     expect(status.state).toBe('error');
-    expect(status.error).toContain('checksum mismatch');
     expect(status.version).toBe('0.9.0');
+    const last = send.mock.calls.at(-1)?.[1] as BetaUpdateStatusEvent;
+    expect(last.error).toContain('checksum mismatch');
   });
 
   it('broadcasts download progress percent', async () => {
@@ -206,7 +210,8 @@ describe('UpdateService', () => {
     fake.downloadUpdate.mockRejectedValueOnce(new Error('network down'));
     const status = await service.downloadUpdate();
     expect(status.state).toBe('error');
-    expect(status.error).toContain('network down');
+    const last = send.mock.calls.at(-1)?.[1] as BetaUpdateStatusEvent;
+    expect(last.error).toContain('network down');
   });
 
   it('installUpdate only quits when the update is downloaded', () => {
