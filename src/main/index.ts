@@ -52,10 +52,23 @@ function createWindow(): void {
   // Initialize initial tab
   tabManager.createTab();
 
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+  // Playwright E2E runs against the built renderer (no dev server), so
+  // SENTRY_E2E=1 forces loading the packaged index.html even when unpackaged.
+  if (process.env.SENTRY_E2E === '1') {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  } else if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  }
+
+  // Test hooks for the Playwright E2E suite (enabled only with SENTRY_E2E=1).
+  if (process.env.SENTRY_E2E === '1') {
+    (globalThis as unknown as Record<string, unknown>).__SENTRY_E2E__ = {
+      getTabManager: (): TabManager => tabManager,
+      getAgentService: (): AgentService => agentService,
+      getStorageManager: (): StorageManager => storageManager,
+    };
   }
 }
 
