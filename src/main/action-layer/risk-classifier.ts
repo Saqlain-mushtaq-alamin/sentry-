@@ -56,8 +56,8 @@ const rules: PolicyRule[] = [
     description: 'Deleting content or accounts is CRITICAL',
     priority: 110,
     condition: (ctx) => {
-      const label = (ctx.targetElement as InteractiveElement)?.label?.toLowerCase() || '';
-      return ['delete', 'remove', 'destroy', 'terminate'].some(word => label.includes(word));
+      const label = (ctx.targetElement as InteractiveElement)?.label || '';
+      return /\b(delete|destroy|terminate)\b/i.test(label);
     },
     riskTier: RiskTier.CRITICAL,
   },
@@ -67,20 +67,34 @@ const rules: PolicyRule[] = [
     description: 'Making payments is CRITICAL',
     priority: 110,
     condition: (ctx) => {
-      const label = (ctx.targetElement as InteractiveElement)?.label?.toLowerCase() || '';
-      return ['pay now', 'checkout', 'submit payment', 'buy now'].some(word => label.includes(word));
+      const label = (ctx.targetElement as InteractiveElement)?.label || '';
+      return /\b(pay now|checkout|submit payment|buy now)\b/i.test(label);
     },
     riskTier: RiskTier.CRITICAL,
   },
   // HIGH Rules (Priority 80+)
   {
+    id: 'remove-action',
+    name: 'Remove Action',
+    description: 'Removing items or filters is HIGH',
+    priority: 82,
+    condition: (ctx) => {
+      const label = (ctx.targetElement as InteractiveElement)?.label || '';
+      return /\bremove\b/i.test(label);
+    },
+    riskTier: RiskTier.HIGH,
+  },
+  {
     id: 'form-submit',
     name: 'Form Submission',
     description: 'Submitting a form is HIGH',
     priority: 80,
-    condition: (ctx) =>
-      ctx.action.type === 'submit' ||
-      (ctx.action.type === 'click' && (ctx.targetElement as InteractiveElement)?.type === 'submit'),
+    condition: (ctx) => {
+      const el = ctx.targetElement as InteractiveElement | undefined;
+      const isSubmit = ctx.action.type === 'submit' || (ctx.action.type === 'click' && el?.type === 'submit');
+      const looksLikeSearch = /\b(search|find|go)\b/i.test(el?.label || '');
+      return isSubmit && !looksLikeSearch;
+    },
     riskTier: RiskTier.HIGH,
   },
   {
@@ -101,8 +115,8 @@ const rules: PolicyRule[] = [
     priority: 85,
     condition: (ctx) => {
       if (ctx.action.type !== 'type' && ctx.action.type !== 'fill') return false;
-      const label = (ctx.targetElement as InteractiveElement)?.label?.toLowerCase() || '';
-      return ['ssn', 'credit card', 'card number', 'phone', 'address'].some(word => label.includes(word));
+      const label = (ctx.targetElement as InteractiveElement)?.label || '';
+      return /\b(ssn|social security|credit card|card number|cvv|phone number|(street|home|billing|shipping|mailing) address)\b/i.test(label);
     },
     riskTier: RiskTier.HIGH,
   },
@@ -242,8 +256,8 @@ export class RiskClassifier {
 
     // Explicit SSN/Card escalation override
     if (context.targetElement && finalTier !== RiskTier.CRITICAL) {
-      const label = (context.targetElement as InteractiveElement)?.label?.toLowerCase() || '';
-      if (label.includes('ssn') || label.includes('credit card') || label.includes('card number')) {
+      const label = (context.targetElement as InteractiveElement)?.label || '';
+      if (/\b(ssn|social security|credit card|card number)\b/i.test(label)) {
         escalatedFrom = finalTier;
         finalTier = RiskTier.CRITICAL;
         reasons.unshift('Escalated to CRITICAL due to sensitive target field (SSN/Credit Card)');
