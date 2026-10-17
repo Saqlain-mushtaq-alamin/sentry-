@@ -40,27 +40,30 @@ export class TabManager {
     this.updateActiveViewBounds();
   }
 
-  public setHidden(hidden: boolean): void {
+  public async setHidden(hidden: boolean): Promise<string | null> {
     this.isViewHidden = hidden;
-    if (!this.activeTabId) return;
-    const activeView = this.views.get(this.activeTabId);
-    const activeTab = this.tabs.get(this.activeTabId);
-    if (!activeView || !activeTab || activeTab.url.startsWith('sentry://')) return;
+    const id = this.activeTabId;
+    if (!id) return null;
+    const view = this.views.get(id);
+    const tab = this.tabs.get(id);
+    if (!view || !tab || tab.url.startsWith('sentry://')) return null;
 
-    if (hidden) {
-      try {
-        this.window.contentView.removeChildView(activeView);
-      } catch {
-        // ignored
-      }
-    } else {
-      try {
-        this.window.contentView.addChildView(activeView);
-      } catch {
-        // ignored
-      }
+    if (!hidden) {
+      try { this.window.contentView.addChildView(view); } catch {}
       this.updateActiveViewBounds();
+      return null;
     }
+
+    let frame: string | null = null;
+    try {
+      if (!view.webContents.isDestroyed()) {
+        const img = await view.webContents.capturePage();
+        frame = 'data:image/jpeg;base64,' + img.toJPEG(70).toString('base64');
+      }
+    } catch {}
+    if (!this.isViewHidden) return null; // closed again while capturing
+    try { this.window.contentView.removeChildView(view); } catch {}
+    return frame;
   }
 
   public setLayoutOffsets(offsets: Partial<LayoutOffsets>): void {
@@ -149,7 +152,7 @@ export class TabManager {
     const tab: TabItem = {
       id,
       url: formattedUrl,
-      title: formattedUrl === 'sentry://newtab' ? 'New Tab' : formattedUrl,
+      title: formattedUrl.startsWith('sentry://') ? this.getInternalTitle(formattedUrl) : formattedUrl,
       isLoading: false,
       canGoBack: false,
       canGoForward: false,
@@ -600,6 +603,16 @@ export class TabManager {
         return 'Bookmarks';
       case 'sentry://downloads':
         return 'Downloads';
+      case 'sentry://trust':
+        return 'Trust & Permissions';
+      case 'sentry://models':
+        return 'Model Settings';
+      case 'sentry://recipes':
+        return 'Recipes';
+      case 'sentry://developer':
+        return 'Developer Mode';
+      case 'sentry://extensions':
+        return 'Extensions';
       case 'sentry://onboarding':
         return 'Welcome to Sentry';
       case 'sentry://newtab':
