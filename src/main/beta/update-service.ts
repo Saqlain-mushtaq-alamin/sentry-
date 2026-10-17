@@ -24,7 +24,7 @@ export interface AutoUpdaterLike {
   checkForUpdates(): Promise<unknown>;
   downloadUpdate(): Promise<unknown>;
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
-  on(event: string, listener: (...args: never[]) => void): unknown;
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
   removeAllListeners?(event?: string): unknown;
 }
 
@@ -104,22 +104,22 @@ export class UpdateService {
     updater.on('checking-for-update', () => {
       this.setState('checking');
     });
-    updater.on('update-available', (info: never) => {
-      const version = (info as unknown as { version?: string } | undefined)?.version;
+    updater.on('update-available', (info: unknown) => {
+      const version = (info as { version?: string } | undefined)?.version;
       this.setState('available', version);
     });
     updater.on('update-not-available', () => {
       this.setState('not-available');
     });
-    updater.on('download-progress', (progress: never) => {
-      const percent = (progress as unknown as { percent?: number } | undefined)?.percent;
+    updater.on('download-progress', (progress: unknown) => {
+      const percent = (progress as { percent?: number } | undefined)?.percent;
       this.setState('downloading', this.availableVersion, undefined, percent);
     });
-    updater.on('update-downloaded', (info: never) => {
-      const version = (info as unknown as { version?: string } | undefined)?.version;
+    updater.on('update-downloaded', (info: unknown) => {
+      const version = (info as { version?: string } | undefined)?.version;
       this.setState('downloaded', version);
     });
-    updater.on('error', (error: never) => {
+    updater.on('error', (error: unknown) => {
       this.setState('error', this.availableVersion, String(error));
     });
 
