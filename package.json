@@ -14,8 +14,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:adversarial": "vitest run tests/adversarial",
+    "test:stress": "vitest run tests/stress",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "package": "electron-builder"
+    "package": "electron-builder",
+    "package:beta": "electron-builder --publish never -c.extraMetadata.channel=beta"
   },
   "dependencies": {
     "electron-chrome-extensions": "^4.9.0",
