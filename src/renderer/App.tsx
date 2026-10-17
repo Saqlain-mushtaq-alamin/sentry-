@@ -18,7 +18,8 @@ import { AgentSidebar, AgentResultData } from './components/AgentSidebar';
 import { AgentVision } from './overlays/AgentVision';
 import { InjectionAlert } from './overlays/InjectionAlert';
 import { MultiTabDashboard } from './overlays/MultiTabDashboard';
-import { ConfirmationDialog } from './overlays/ConfirmationDialog';
+import { ConfirmationBar } from './components/ConfirmationBar';
+import { useFrozenFrame } from './hooks/useHideNativeView';
 import { speak, stop } from './services/tts';
 import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep } from '../shared/types';
 import './styles/index.css';
@@ -67,7 +68,7 @@ declare global {
       view: {
         setLayoutOffsets?: (offsets: { topOffset?: number; bottomOffset?: number; rightOffset?: number }) => Promise<void>;
         setBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
-        setHidden?: (hidden: boolean) => Promise<void>;
+        setHidden?: (hidden: boolean) => Promise<string | null>;
       };
       extensions: {
         getAll: () => Promise<import('../shared/types').LoadedExtension[]>;
@@ -137,6 +138,7 @@ declare global {
 
 
 export default function App(): React.JSX.Element {
+  const frozenFrame = useFrozenFrame();
   const [tabs, setTabs] = useState<TabItem[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
@@ -268,7 +270,7 @@ export default function App(): React.JSX.Element {
         timestamp: Date.now(),
         read: false,
       },
-    ]);
+    ].slice(-50));
 
     if (window.sentry?.agent) {
       speakIfEnabled(`Executing: ${instruction}`);
@@ -298,7 +300,7 @@ export default function App(): React.JSX.Element {
             timestamp: Date.now(),
             read: false,
           },
-        ]);
+        ].slice(-50));
       } else {
         setTaskState(TaskState.FAILED);
         const errMessage = res.error || res.result?.error || 'Failed to complete agent task';
@@ -313,7 +315,7 @@ export default function App(): React.JSX.Element {
             timestamp: Date.now(),
             read: false,
           },
-        ]);
+        ].slice(-50));
       }
     }
   };
@@ -348,7 +350,7 @@ export default function App(): React.JSX.Element {
           timestamp: Date.now(),
           read: false,
         },
-      ]);
+      ].slice(-50));
     } catch {
       setNotifications((prev) => [
         ...prev,
@@ -360,7 +362,7 @@ export default function App(): React.JSX.Element {
           timestamp: Date.now(),
           read: false,
         },
-      ]);
+      ].slice(-50));
     }
   };
 
@@ -567,15 +569,15 @@ export default function App(): React.JSX.Element {
             break;
           case 'h':
             e.preventDefault();
-            handleNavigate('sentry://history');
+            handleCreateTab('sentry://history');
             break;
           case 'j':
             e.preventDefault();
-            handleNavigate('sentry://downloads');
+            handleCreateTab('sentry://downloads');
             break;
           case ',':
             e.preventDefault();
-            handleNavigate('sentry://settings');
+            handleCreateTab('sentry://settings');
             break;
           case 'r':
             e.preventDefault();
@@ -739,7 +741,8 @@ export default function App(): React.JSX.Element {
         onGoForward={handleGoForward}
         onReload={handleReload}
         onToggleBookmark={handleToggleBookmark}
-        onOpenPage={(page) => handleNavigate(`sentry://${page}`)}
+        onOpenPage={(page) => handleCreateTab(`sentry://${page}`)}
+        onMarkAllNotificationsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
       />
 
       {/* ── Bookmarks Bar (only if enabled AND has items) ──────── */}
@@ -748,6 +751,25 @@ export default function App(): React.JSX.Element {
           bookmarks={bookmarks}
           onNavigate={handleNavigate}
           onRemoveBookmark={handleRemoveBookmark}
+        />
+      )}
+
+      {pendingConfirmation && (
+        <ConfirmationBar
+          action={pendingConfirmation.action}
+          riskTier={pendingConfirmation.decision.riskTier}
+          explanation={pendingConfirmation.decision.explanation}
+          domain={(() => {
+            try {
+              return new URL(pendingConfirmation.action.url).hostname;
+            } catch {
+              return 'this site';
+            }
+          })()}
+          onConfirm={async (response) => {
+            await window.sentry?.agent?.respondConfirmation?.(pendingConfirmation.action.id, response);
+            setPendingConfirmation(null);
+          }}
         />
       )}
 
@@ -764,6 +786,14 @@ export default function App(): React.JSX.Element {
             background: 'var(--bg-0)',
           }}
         >
+          {frozenFrame && (
+            <img
+              src={frozenFrame}
+              alt=""
+              draggable={false}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill' }}
+            />
+          )}
           {activeTab?.url === 'sentry://newtab' && (
             <NewTab history={history} onNavigate={handleNavigate} />
           )}
@@ -850,31 +880,6 @@ export default function App(): React.JSX.Element {
             />
           )}
 
-          {/* Action Firewall Confirmation Modal */}
-          {pendingConfirmation && (
-            <ConfirmationDialog
-              action={pendingConfirmation.action}
-              riskTier={pendingConfirmation.decision.riskTier}
-              siteTrust={pendingConfirmation.decision.siteTrust}
-              explanation={pendingConfirmation.decision.explanation}
-              domain={(() => {
-                try {
-                  return new URL(pendingConfirmation.action.url).hostname;
-                } catch {
-                  return pendingConfirmation.action.url || 'current site';
-                }
-              })()}
-              onConfirm={async (response) => {
-                if (window.sentry?.agent?.respondConfirmation) {
-                  await window.sentry.agent.respondConfirmation(
-                    pendingConfirmation.action.id,
-                    response
-                  );
-                }
-                setPendingConfirmation(null);
-              }}
-            />
-          )}
         </div>
 
         {/* Docked Agent Sidebar (Normal flex child, shrinks content automatically) */}
