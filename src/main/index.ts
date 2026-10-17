@@ -1,9 +1,15 @@
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, session } from 'electron';
+import * as fs from 'fs';
 import path from 'path';
 import { StorageManager } from './browser/storage-manager';
 import { TabManager } from './browser/tab-manager';
 import { DownloadManager } from './browser/download-manager';
 import { AgentService } from './agent/agent-service';
+import { FeedbackService } from './beta/feedback-service';
+import { BetaMetricsCollector } from './beta/metrics';
+import { UpdateService } from './beta/update-service';
+import { startCrashReporter } from './beta/crash-reporter';
+import { BetaChannel, BetaConsentSettings, BetaMetricEvent, BetaStatus, FeedbackInput } from '../shared/beta';
 
 let mainWindow: BrowserWindow | null = null;
 let storageManager: StorageManager;
@@ -11,12 +17,95 @@ let tabManager: TabManager;
 let downloadManager: DownloadManager;
 let agentService: AgentService;
 
+// Beta program services (Phase 15)
+let feedbackService: FeedbackService;
+let metricsCollector: BetaMetricsCollector;
+let updateService: UpdateService;
+let resolvedChannel: BetaChannel | null = null;
+
 import { ExtensionManager } from './extensions/extension-manager';
 
 let extensionManager: ExtensionManager;
 
+/**
+ * Beta channel resolution: explicit env (CI/QA) → packaged metadata injected
+ * by `npm run package:beta` (-c.extraMetadata.channel=beta) → stable.
+ */
+function resolveChannel(): BetaChannel {
+  if (resolvedChannel) return resolvedChannel;
+  if (process.env.SENTRY_CHANNEL === 'beta') {
+    resolvedChannel = 'beta';
+  } else if (process.env.SENTRY_CHANNEL === 'stable') {
+    resolvedChannel = 'stable';
+  } else {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf-8')) as {
+        channel?: string;
+      };
+      resolvedChannel = pkg.channel === 'beta' ? 'beta' : 'stable';
+    } catch {
+      resolvedChannel = 'stable';
+    }
+  }
+  return resolvedChannel;
+}
+
+function consentSettings(): BetaConsentSettings {
+  const settings = storageManager.getSettings();
+  return {
+    telemetryEnabled: settings.betaTelemetryEnabled === true,
+    crashReportingEnabled: settings.betaCrashReportingEnabled === true,
+  };
+}
+
+function getBetaStatus(): BetaStatus {
+  const update = updateService.getStatusEvent();
+  return {
+    channel: resolveChannel(),
+    appVersion: app.getVersion(),
+    consent: consentSettings(),
+    pendingFeedbackCount: feedbackService.pendingCount(),
+    lastUpdateCheck: updateService.getLastCheck(),
+    updateState: update.state,
+    updateAvailableVersion: update.version,
+  };
+}
+
 function createWindow(): void {
   storageManager = new StorageManager();
+
+  // ── Beta program services (Phase 15 Task 15.6) ────────────────────────────
+  const channel = resolveChannel();
+  const consent = consentSettings();
+
+  metricsCollector = new BetaMetricsCollector({
+    filePath: path.join(app.getPath('userData'), 'beta-metrics.json'),
+    channel,
+    appVersion: app.getVersion(),
+  });
+  metricsCollector.startSession();
+  metricsCollector.recordStartup(Math.round(process.uptime() * 1000));
+
+  feedbackService = new FeedbackService({
+    filePath: path.join(app.getPath('userData'), 'beta-feedback.json'),
+    appVersion: app.getVersion(),
+    channel,
+  });
+
+  updateService = new UpdateService({
+    channel,
+    appVersion: app.getVersion(),
+    feedUrl: process.env.SENTRY_UPDATE_URL,
+    getWindow: () => mainWindow,
+  });
+
+  // Crash reporting is strictly opt-in: requires user consent AND a submit URL.
+  startCrashReporter({
+    submitURL: process.env.SENTRY_CRASH_REPORT_URL ?? '',
+    enabled: consent.crashReportingEnabled,
+    channel,
+    appVersion: app.getVersion(),
+  });
 
   mainWindow = new BrowserWindow({
     width: 1380,
