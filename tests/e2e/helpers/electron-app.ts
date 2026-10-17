@@ -95,6 +95,33 @@ export function navigateActiveTab(app: ElectronApplication, url: string): Promis
 }
 
 /**
+ * Make the active tab usable by the agent's ReAct loop.
+ *
+ * Views created for sentry:// internal pages never call loadURL, so their
+ * webContents stays in the pristine initial state where debugger.attach /
+ * Runtime.evaluate (used by the hidden-injection scanner and the page observer)
+ * hang forever. Explicitly load about:blank on the internal tab's view so CDP
+ * commands resolve; real pages (file://, http(s)://) are left untouched.
+ */
+export async function prepareTabForTask(app: ElectronApplication): Promise<void> {
+  await evaluateInMain(app, () => {
+    const hooks = (globalThis as unknown as {
+      __SENTRY_E2E__: {
+        getTabManager(): {
+          getActiveTab(): { id: string; url: string };
+          getView(id: string): { webContents: { loadURL(url: string): Promise<void> } };
+        };
+      };
+    }).__SENTRY_E2E__;
+    const tabManager = hooks.getTabManager();
+    const active = tabManager.getActiveTab();
+    if (!active.url.startsWith('sentry://')) return;
+    const wc = tabManager.getView(active.id).webContents;
+    return wc.loadURL('about:blank');
+  });
+}
+
+/**
  * Force the model router onto cloud_only mode. With no API key configured the
  * "cloud" adapter is the deterministic scripted mock — required on machines
  * where a local Ollama server is running (auto routing would otherwise pick a
