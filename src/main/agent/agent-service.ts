@@ -14,12 +14,13 @@ import { CDPManager } from '../cdp/cdp-manager';
 import { ActionExecutor } from '../cdp/action-executor';
 import { PageObserver } from '../cdp/page-observer';
 import { ElementResolver } from '../cdp/element-resolver';
-import { ActionLogEntry, AgentTask, ChatMessage, TaskState, DeveloperSessionStats, TraceStep, TaskTrace, RiskTier } from '../../shared/types';
+import { ActionLogEntry, AgentTask, ChatMessage, TaskState, DeveloperSessionStats, TraceStep, TaskTrace, RiskTier, PageSnapshot, AuditEntry } from '../../shared/types';
 import { StorageManager } from '../browser/storage-manager';
 import { TabManager } from '../browser/tab-manager';
 import { SecretStore } from '../browser/secret-store';
 
 import { InjectionDetector } from '../action-layer/injection-detector';
+import { ScanReport } from '../action-layer/injection-detector/types';
 import { ModelRouter, RoutingContext } from './model-router';
 import { RecipeManager } from './recipe-manager';
 import { RecipeCapture } from './recipe-capture';
