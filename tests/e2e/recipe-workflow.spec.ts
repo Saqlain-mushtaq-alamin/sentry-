@@ -7,12 +7,15 @@
  * settle — a FAILED state from a missing page snapshot on an internal page is
  * an accepted, known outcome), and deleting the recipe.
  */
-import { test, expect, navigateActiveTab, forceMockModel } from './helpers/electron-app';
+import { test, expect, navigateActiveTab, forceMockModel, prepareTabForTask } from './helpers/electron-app';
 
 test('Run task → save recipe → replay', async ({ app, mainWindow }) => {
   const restoreModel = await forceMockModel(mainWindow);
   try {
     await navigateActiveTab(app, 'sentry://newtab');
+    // Prime the never-loaded newtab view with about:blank so the agent loop's
+    // hidden-content scanner can attach CDP (it hangs on pristine views).
+    await prepareTabForTask(app);
 
     const instruction = 'check the weather';
     const res = await mainWindow.evaluate((instr: string) =>
@@ -76,6 +79,6 @@ test('Run task → save recipe → replay', async ({ app, mainWindow }) => {
     );
     expect(recipesFinal.some((r: { id: string }) => r.id === recipe.id)).toBe(false);
   } finally {
-    await restoreModel();
+    await restoreModel().catch(() => undefined);
   }
 });
