@@ -32,6 +32,7 @@ import { ResourceManager } from '../browser/resource-manager';
 import { SpeechToText } from '../voice/speech-to-text';
 import { TextToSpeech } from '../voice/text-to-speech';
 import { MultiTabTask, BackgroundTask } from '../../shared/types';
+import { BetaMetricEvent } from '../../shared/beta';
 import { TraceExporter } from './trace-exporter';
 import { BenchmarkRunner } from './benchmarks';
 
@@ -43,6 +44,7 @@ export class AgentService {
   private resolver: ElementResolver;
   private actionExecutor: ActionExecutor;
   private detector: InjectionDetector;
+  private metricsListener: ((event: BetaMetricEvent) => void) | null = null;
   private storageManager: StorageManager;
   private tabManager: TabManager;
   private mainWindow: BrowserWindow;
@@ -149,6 +151,22 @@ export class AgentService {
     return this.auditLog.getEntries();
   }
 
+  /**
+   * Beta metrics sink (Phase 15). The main process registers a collector
+   * here; pass null to detach. Never throws into the agent pipeline.
+   */
+  public setMetricsListener(listener: ((event: BetaMetricEvent) => void) | null): void {
+    this.metricsListener = listener;
+  }
+
+  private emitMetric(event: BetaMetricEvent): void {
+    try {
+      this.metricsListener?.(event);
+    } catch (err) {
+      console.warn('[AgentService] metrics listener failed:', err);
+    }
+  }
+
   private buildCloudAdapter(model: string): ModelAdapter {
     if (model.startsWith('claude')) {
       const key = this.secretStore.get('anthropic') || process.env.ANTHROPIC_API_KEY;
@@ -233,6 +251,7 @@ export class AgentService {
 
       // Notify UI that agent is starting
       this.mainWindow.webContents.send('agent:state-changed', TaskState.EXECUTING);
+      this.emitMetric('task-started');
 
       const routingContext: RoutingContext = {
         task,
@@ -263,6 +282,7 @@ export class AgentService {
           }, 120_000);
           ipcMain.handleOnce(channel, (_, response: 'allow_once' | 'allow_site' | 'deny') => {
             clearTimeout(timer);
+            this.emitMetric(response === 'deny' ? 'confirmation-denied' : 'confirmation-accepted');
             try {
               if (response === 'allow_site' && decision.riskTier !== RiskTier.CRITICAL) {
                 let domain = action.url || '';
@@ -387,6 +407,7 @@ export class AgentService {
       });
 
       this.reactLoop.onInjectionDetected((report) => {
+        this.emitMetric('injection-detected');
         this.mainWindow.webContents.send('agent:injection-detected', report);
       });
 
@@ -401,6 +422,11 @@ export class AgentService {
         }
         // Notify UI of final state
         this.mainWindow.webContents.send('agent:state-changed', result.state);
+        if (result.state === TaskState.COMPLETED) {
+          this.emitMetric('task-completed');
+        } else if (result.state === TaskState.FAILED) {
+          this.emitMetric('task-failed');
+        }
         this.mainWindow.webContents.send('agent:developer-stats-updated', this.currentDeveloperStats);
 
         if (result.actionLog) {
@@ -415,6 +441,7 @@ export class AgentService {
         return { success: result.state === TaskState.COMPLETED, result, error: result.error };
       } catch (err: any) {
         console.error('[AgentService] Task uncaught exception:', err);
+        this.emitMetric('task-failed');
         this.mainWindow.webContents.send('agent:state-changed', TaskState.FAILED);
         return { success: false, error: err.message };
       }

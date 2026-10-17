@@ -73,6 +73,16 @@ export const IPC_CHANNELS = {
   // Voice
   VOICE_TRANSCRIBE: 'voice:transcribe',
 
+  // Beta Program (Phase 15)
+  BETA_GET_STATUS: 'beta:get-status',
+  BETA_SUBMIT_FEEDBACK: 'beta:submit-feedback',
+  BETA_SET_CONSENT: 'beta:set-consent',
+  BETA_GET_METRICS: 'beta:get-metrics',
+  BETA_CHECK_UPDATES: 'beta:check-updates',
+  BETA_DOWNLOAD_UPDATE: 'beta:download-update',
+  BETA_INSTALL_UPDATE: 'beta:install-update',
+  BETA_UPDATE_STATUS: 'beta:update-status',
+
   // Memory & Privacy
   AGENT_FORGET_SITE: 'agent:forget-site',
   AGENT_CLEAR_LOGS: 'agent:clear-logs',

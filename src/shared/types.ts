@@ -122,6 +122,10 @@ export interface UserSettings {
   voiceOutputEnabled?: boolean;
   hasCompletedOnboarding?: boolean;
   tabUnloadTimeoutMinutes?: number;
+  /** Phase 15 beta program — consent-gated telemetry (default: off). */
+  betaTelemetryEnabled?: boolean;
+  /** Phase 15 beta program — consent-gated crash reporting (default: off). */
+  betaCrashReportingEnabled?: boolean;
 }
 
 
