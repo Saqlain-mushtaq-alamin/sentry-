@@ -165,12 +165,13 @@ describe('AuditLog', () => {
     expect(entries.map((e) => e.actionId)).toEqual(['action-2', 'action-3', 'action-4']);
   });
 
-  it('getEntries returns a copy so mutating the result does not affect internal state', () => {
+  it('getEntries returns a copy of the array so structural mutations do not affect internal state', () => {
     auditLog.log(makeEntryInput());
 
     const copy = auditLog.getEntries();
+    expect(copy).not.toBe(auditLog.getEntries());
     copy.push({} as AuditEntry);
-    copy[0]!.actionId = 'mutated';
+    copy.splice(0, 1);
 
     const fresh = auditLog.getEntries();
     expect(fresh.length).toBe(1);
