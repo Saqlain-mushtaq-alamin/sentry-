@@ -19,6 +19,7 @@ import { AgentVision } from './overlays/AgentVision';
 import { InjectionAlert } from './overlays/InjectionAlert';
 import { MultiTabDashboard } from './overlays/MultiTabDashboard';
 import { ConfirmationBar } from './components/ConfirmationBar';
+import { FeedbackDialog } from './components/FeedbackDialog';
 import { useFrozenFrame } from './hooks/useHideNativeView';
 import { speak, stop } from './services/tts';
 import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep } from '../shared/types';
@@ -170,6 +171,7 @@ export default function App(): React.JSX.Element {
     },
   ]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [activeSnapshot, setActiveSnapshot] = useState<PageSnapshot | undefined>(undefined);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
@@ -664,6 +666,28 @@ export default function App(): React.JSX.Element {
           onDoubleClick={handleMaximize}
         />
 
+        {/* Beta feedback entry point (Phase 15) */}
+        <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button
+            onClick={() => setIsFeedbackOpen(true)}
+            title="Send feedback"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-2)',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontFamily: 'inherit',
+              transition: 'background 0.12s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            Feedback
+          </button>
+        </div>
+
         {/* Window Controls Only (titlebar kept clean) */}
         <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
@@ -770,6 +794,25 @@ export default function App(): React.JSX.Element {
           onConfirm={async (response) => {
             await window.sentry?.agent?.respondConfirmation?.(pendingConfirmation.action.id, response);
             setPendingConfirmation(null);
+          }}
+        />
+      )}
+
+      {isFeedbackOpen && (
+        <FeedbackDialog
+          isOpen={isFeedbackOpen}
+          onClose={() => setIsFeedbackOpen(false)}
+          onSubmitted={(result) => {
+            if (result.accepted) {
+              addNotification({
+                id: `feedback-${Date.now()}`,
+                type: 'success',
+                title: 'Feedback Sent',
+                message: 'Thanks — your feedback was queued for the beta report.',
+                timestamp: Date.now(),
+                read: false,
+              });
+            }
           }}
         />
       )}
