@@ -14,7 +14,7 @@ import { CDPManager } from '../cdp/cdp-manager';
 import { ActionExecutor } from '../cdp/action-executor';
 import { PageObserver } from '../cdp/page-observer';
 import { ElementResolver } from '../cdp/element-resolver';
-import { ActionLogEntry, AgentTask, ChatMessage, TaskState, DeveloperSessionStats, TraceStep, TaskTrace } from '../../shared/types';
+import { ActionLogEntry, AgentTask, ChatMessage, TaskState, DeveloperSessionStats, TraceStep, TaskTrace, RiskTier } from '../../shared/types';
 import { StorageManager } from '../browser/storage-manager';
 import { TabManager } from '../browser/tab-manager';
 import { SecretStore } from '../browser/secret-store';
@@ -249,14 +249,18 @@ export class AgentService {
           }, 120_000);
           ipcMain.handleOnce(channel, (_, response: 'allow_once' | 'allow_site' | 'deny') => {
             clearTimeout(timer);
-            if (response === 'allow_site') {
-              let domain = action.url || '';
-              try {
-                if (action.url && (action.url.startsWith('http://') || action.url.startsWith('https://'))) {
-                  domain = new URL(action.url).hostname;
-                }
-              } catch {}
-              this.permissionManager.grant(domain, `${action.type}:${action.target}`, 'site', decision.riskTier);
+            try {
+              if (response === 'allow_site' && decision.riskTier !== RiskTier.CRITICAL) {
+                let domain = action.url || '';
+                try {
+                  if (action.url && (action.url.startsWith('http://') || action.url.startsWith('https://'))) {
+                    domain = new URL(action.url).hostname;
+                  }
+                } catch {}
+                this.permissionManager.grant(domain, `${action.type}:${action.target}`, 'site', decision.riskTier);
+              }
+            } catch (e) {
+              console.warn('[AgentService] grant failed', e);
             }
             resolve(response);
           });
