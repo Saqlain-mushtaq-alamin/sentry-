@@ -42,6 +42,7 @@ interface AddressBarProps {
   onReload: () => void;
   onToggleBookmark: (url: string, title: string) => void;
   onOpenPage: (page: string) => void;
+  onMarkAllNotificationsRead?: () => void;
 }
 
 export const AddressBar: React.FC<AddressBarProps> = ({
@@ -59,6 +60,7 @@ export const AddressBar: React.FC<AddressBarProps> = ({
   onReload,
   onToggleBookmark,
   onOpenPage,
+  onMarkAllNotificationsRead,
 }) => {
   const [inputUrl, setInputUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -307,6 +309,7 @@ export const AddressBar: React.FC<AddressBarProps> = ({
         notifications={notifications}
         onDismiss={onDismissNotification}
         onClearAll={onClearNotifications}
+        onMarkAllRead={onMarkAllNotificationsRead}
       />
 
       {/* More ("⋯") Menu Button */}
