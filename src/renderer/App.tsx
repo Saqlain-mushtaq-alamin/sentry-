@@ -90,6 +90,16 @@ declare global {
       voice: {
         transcribe: (audio: ArrayBuffer, mime: string) => Promise<string>;
       };
+      beta: {
+        getStatus: () => Promise<import('../shared/beta').BetaStatus>;
+        submitFeedback: (input: import('../shared/beta').FeedbackInput) => Promise<import('../shared/beta').FeedbackResult>;
+        setConsent: (consent: import('../shared/beta').BetaConsentSettings) => Promise<import('../shared/beta').BetaStatus>;
+        getMetrics: () => Promise<import('../shared/beta').BetaMetricsSnapshot>;
+        checkForUpdates: () => Promise<import('../shared/beta').BetaUpdateStatusEvent>;
+        downloadUpdate: () => Promise<import('../shared/beta').BetaUpdateStatusEvent>;
+        installUpdate: () => Promise<boolean>;
+        onUpdateStatus: (callback: (status: import('../shared/beta').BetaUpdateStatusEvent) => void) => () => void;
+      };
       agent: {
         runTask: (instruction: string) => Promise<{ success: boolean; result?: import('../shared/types').TaskResult; error?: string }>;
         pause: () => Promise<boolean>;
