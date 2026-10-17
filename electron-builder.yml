@@ -16,3 +16,13 @@ win:
 linux:
   target:
     - AppImage
+
+# Phase 15 — beta distribution pipeline.
+# `npm run package:beta` stamps extraMetadata.channel=beta so builds self-
+# identify as beta (resolveChannel in src/main/index.ts) and publish to the
+# generic feed below under the "beta" channel (latest-beta.yml).
+# Override the feed at runtime with SENTRY_UPDATE_URL for QA/staging installs.
+publish:
+  provider: generic
+  url: https://updates.sentrybrowser.dev
+  channel: beta
