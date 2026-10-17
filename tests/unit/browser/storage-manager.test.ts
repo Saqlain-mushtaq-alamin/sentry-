@@ -160,7 +160,7 @@ describe('StorageManager', () => {
   });
 
   describe('downloads', () => {
-    const sample = {
+    const makeSample = () => ({
       id: 'dl-1',
       filename: 'report.pdf',
       url: 'https://example.com/report.pdf',
@@ -169,17 +169,17 @@ describe('StorageManager', () => {
       totalBytes: 100,
       state: 'progressing' as const,
       startTime: 1,
-    };
+    });
 
     it('addDownload prepends the item to the list', () => {
-      storage.addDownload(sample);
-      storage.addDownload({ ...sample, id: 'dl-2', filename: 'second.zip' });
+      storage.addDownload(makeSample());
+      storage.addDownload({ ...makeSample(), id: 'dl-2', filename: 'second.zip' });
 
       expect(storage.getDownloads().map((d) => d.id)).toEqual(['dl-2', 'dl-1']);
     });
 
     it('updateDownload merges partial updates into an existing item', () => {
-      storage.addDownload(sample);
+      storage.addDownload(makeSample());
 
       storage.updateDownload('dl-1', { state: 'completed', receivedBytes: 100, endTime: 42 });
 
@@ -191,7 +191,7 @@ describe('StorageManager', () => {
     });
 
     it('updateDownload ignores unknown ids', () => {
-      storage.addDownload(sample);
+      storage.addDownload(makeSample());
       expect(() => storage.updateDownload('missing', { state: 'completed' })).not.toThrow();
       expect(storage.getDownloads()[0]!.state).toBe('progressing');
     });
