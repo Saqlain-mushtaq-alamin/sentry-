@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -18,6 +18,7 @@ interface NotificationCenterProps {
   onNotificationClick?: (notif: AgentNotification) => void;
   onActionClick?: (notifId: string, actionKey: string) => void;
   onClearAll?: () => void;
+  onMarkAllRead?: () => void;
 }
 
 const timeAgo = (timestamp: number) => {
@@ -30,33 +31,68 @@ const timeAgo = (timestamp: number) => {
   return new Date(timestamp).toLocaleDateString();
 };
 
+const TOAST_MS = 5000;
+
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   notifications,
   onDismiss,
   onNotificationClick,
   onActionClick,
   onClearAll,
+  onMarkAllRead,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hiddenToasts, setHiddenToasts] = useState<Set<string>>(() => new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Hide native WebContentsView when notification drawer is open
   useHideNativeView(isOpen);
 
-  // Auto dismiss non-critical toasts after 5 seconds
+  // Auto dismiss non-critical toasts after 5 seconds without clearing from history
   useEffect(() => {
-    const activeToasts = notifications.filter(
-      (n) => n.type !== 'confirmation' && n.type !== 'security_alert'
-    );
-    const timers = activeToasts.map((n) =>
-      setTimeout(() => {
-        onDismiss(n.id);
-      }, 5000)
-    );
+    const timers = notifications
+      .filter((n) => n.type !== 'confirmation' && n.type !== 'security_alert' && !hiddenToasts.has(n.id))
+      .map((n) =>
+        setTimeout(
+          () => setHiddenToasts((prev) => new Set(prev).add(n.id)),
+          Math.max(0, TOAST_MS - (Date.now() - n.timestamp)),
+        ),
+      );
     return () => timers.forEach(clearTimeout);
-  }, [notifications, onDismiss]);
+  }, [notifications, hiddenToasts]);
+
+  const toggleDrawer = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    if (next) onMarkAllRead?.();
+  };
+
+  // Close drawer on click outside or Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const recentToasts = notifications.slice(-2); // max 2 toasts
+  const recentToasts = notifications.filter((n) => !hiddenToasts.has(n.id)).slice(-2); // max 2 toasts
 
   const renderIcon = (type: AgentNotification['type']) => {
     switch (type) {
@@ -75,13 +111,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   return (
-    <div className="notification-center-wrapper">
+    <div className="notification-center-wrapper" ref={containerRef}>
       {/* Bell Button */}
       <div style={{ position: 'relative' }}>
         <IconButton
           label="Notifications"
           active={isOpen}
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={toggleDrawer}
         >
           <Bell size={15} />
         </IconButton>
@@ -124,7 +160,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 label="Dismiss"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDismiss(notif.id);
+                  setHiddenToasts((prev) => new Set(prev).add(notif.id));
                 }}
                 style={{ width: '20px', height: '20px' }}
               >
