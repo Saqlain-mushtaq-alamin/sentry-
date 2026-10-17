@@ -184,12 +184,13 @@ describe('TabManager', () => {
     it('removes the tab, its view and its history entry', () => {
       const first = tabManager.createTab('https://a.com');
       const second = tabManager.createTab('https://b.com');
+      const firstView = getView(first.id);
 
       tabManager.closeTab(first.id);
 
       expect(tabManager.getTabs().map((t) => t.id)).toEqual([second.id]);
       expect(tabManager.getView(first.id)).toBeUndefined();
-      expect(mockWindow.contentView.removeChildView).toHaveBeenCalledWith(getView(first.id));
+      expect(mockWindow.contentView.removeChildView).toHaveBeenCalledWith(firstView);
       // closing a background tab activates the remaining one
       expect(tabManager.getActiveTab()?.id).toBe(second.id);
     });
