@@ -136,6 +136,19 @@ export class AgentService {
     this.registerIpcHandlers();
   }
 
+  /**
+   * Run the injection detector against a live tab + snapshot.
+   * Exposed for E2E security tests and Developer Mode diagnostics.
+   */
+  public async scanPageForInjection(tabId: string, snapshot: PageSnapshot): Promise<ScanReport> {
+    return this.detector.scanPage(tabId, snapshot);
+  }
+
+  /** Snapshot of the firewall audit trail (most recent entries first). */
+  public getAuditLogEntries(): AuditEntry[] {
+    return this.auditLog.getEntries();
+  }
+
   private buildCloudAdapter(model: string): ModelAdapter {
     if (model.startsWith('claude')) {
       const key = this.secretStore.get('anthropic') || process.env.ANTHROPIC_API_KEY;
