@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Pin } from 'lucide-react';
 import { TabItem } from '../../shared/types';
 import { useHideNativeView } from '../hooks/useHideNativeView';
@@ -23,9 +23,33 @@ export const TabBar: React.FC<TabBarProps> = ({
   onTogglePinTab,
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Automatically hide native WebContentsView when context menu is open
   useHideNativeView(!!contextMenu);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [contextMenu]);
 
   const handleContextMenu = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
@@ -191,6 +215,7 @@ export const TabBar: React.FC<TabBarProps> = ({
       {/* Context Menu Popup */}
       {contextMenu && (
         <div
+          ref={contextMenuRef}
           style={{
             position: 'fixed',
             top: contextMenu.y,
