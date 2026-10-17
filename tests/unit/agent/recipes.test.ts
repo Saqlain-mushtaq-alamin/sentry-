@@ -230,19 +230,19 @@ describe('RecipeManager', () => {
 // ─── RecipeReplayEngine ──────────────────────────────────────────────────────
 
 describe('RecipeReplayEngine', () => {
-  function buildEngine(over: { executor?: unknown; snapshot?: PageSnapshot } = {}) {
+  function buildEngine(over: { executor?: unknown; snapshot?: PageSnapshot; firewall?: unknown } = {}) {
     const executor = (over.executor ?? {
       execute: vi.fn().mockResolvedValue({ success: true, duration: 5 }),
     }) as any;
     const observer = {
       getPageSnapshot: vi.fn().mockResolvedValue(over.snapshot ?? makeSnapshot()),
     } as any;
-    const firewall = new ActionFirewall(
+    const firewall = (over.firewall ?? new ActionFirewall(
       new RiskClassifier(),
       new TrustManager(),
       new PermissionManager(),
       new AuditLog(),
-    );
+    )) as any;
     const engine = new RecipeReplayEngine(executor as any, firewall, observer as any);
     return { engine, executor, observer };
   }
@@ -299,8 +299,38 @@ describe('RecipeReplayEngine', () => {
     );
   });
 
-  it('pauses with a confirmation error when the firewall rates a step HIGH', async () => {
+  it('fails with a confirmation explanation when the firewall rates a submit step HIGH', async () => {
     const { engine, executor } = buildEngine();
+    const recipe = makeRecipe([
+      makeStep({ order: 0, actionType: 'submit', target: { primary: '#checkout-form', fallbacks: [] } }),
+    ]);
+
+    const result = await run(engine.replay('tab-1', recipe, {}));
+
+    // The real ActionFirewall marks HIGH as allowed=false + requiresConfirmation=true,
+    // and RecipeReplayEngine checks !allowed before requiresConfirmation.
+    expect(result.state).toBe(TaskState.FAILED);
+    expect(result.error).toContain('HIGH risk action requires confirmation');
+    expect(executor.execute).not.toHaveBeenCalled();
+    expect(result.actionLog[0]!.decision.allowed).toBe(false);
+    expect(result.actionLog[0]!.decision.requiresConfirmation).toBe(true);
+    expect(result.actionLog[0]!.decision.riskTier).toBe(RiskTier.HIGH);
+  });
+
+  it('pauses with a confirmation error when the firewall allows the step but requires confirmation', async () => {
+    const confirmFirewall = {
+      evaluateAction: vi.fn().mockResolvedValue({
+        actionId: 'stub',
+        allowed: true,
+        requiresConfirmation: true,
+        riskTier: RiskTier.HIGH,
+        classification: { tier: RiskTier.HIGH, reasons: ['stub'], policyRulesFired: [], confidence: 1 },
+        siteTrust: SiteTrustLevel.READ_ACT,
+        explanation: 'HIGH risk action requires confirmation.',
+        detailedReason: 'stub',
+      }),
+    };
+    const { engine, executor } = buildEngine({ firewall: confirmFirewall });
     const recipe = makeRecipe([
       makeStep({ order: 0, actionType: 'submit', target: { primary: '#checkout-form', fallbacks: [] } }),
     ]);
@@ -310,9 +340,6 @@ describe('RecipeReplayEngine', () => {
     expect(result.state).toBe(TaskState.PAUSED);
     expect(result.error).toBe('Recipe requires user confirmation.');
     expect(executor.execute).not.toHaveBeenCalled();
-    expect(result.actionLog[0]!.decision.allowed).toBe(false);
-    expect(result.actionLog[0]!.decision.requiresConfirmation).toBe(true);
-    expect(result.actionLog[0]!.decision.riskTier).toBe(RiskTier.HIGH);
   });
 
   it('fails the replay when the firewall blocks a dangerous navigate target', async () => {
