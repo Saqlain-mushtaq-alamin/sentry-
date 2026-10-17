@@ -133,6 +133,13 @@ function createWindow(): void {
   downloadManager = new DownloadManager(mainWindow, storageManager);
   agentService = new AgentService(mainWindow, storageManager, tabManager);
 
+  // Feed beta metrics from the agent pipeline (consent-gated at record time).
+  agentService.setMetricsListener((event: BetaMetricEvent) => {
+    if (consentSettings().telemetryEnabled) {
+      metricsCollector.recordEvent(event);
+    }
+  });
+
 
   extensionManager = new ExtensionManager(tabManager);
   // electron-chrome-extensions needs to be initialized after session is ready
@@ -231,8 +238,39 @@ ipcMain.handle('view:set-layout-offsets', (_, offsets) => tabManager.setLayoutOf
 ipcMain.handle('view:set-bounds', (_, bounds) => tabManager.setContentBounds(bounds));
 ipcMain.handle('view:set-hidden', (_, hidden) => tabManager.setHidden(hidden));
 
+// Beta Program IPC (Phase 15 Task 15.6)
+ipcMain.handle('beta:get-status', (): BetaStatus => getBetaStatus());
+
+ipcMain.handle('beta:submit-feedback', (_, input: FeedbackInput) => feedbackService.submit(input));
+
+ipcMain.handle('beta:set-consent', (_, consent: BetaConsentSettings): BetaStatus => {
+  storageManager.updateSettings({
+    betaTelemetryEnabled: consent.telemetryEnabled,
+    betaCrashReportingEnabled: consent.crashReportingEnabled,
+  });
+  startCrashReporter({
+    submitURL: process.env.SENTRY_CRASH_REPORT_URL ?? '',
+    enabled: consent.crashReportingEnabled,
+    channel: resolveChannel(),
+    appVersion: app.getVersion(),
+  });
+  return getBetaStatus();
+});
+
+ipcMain.handle('beta:get-metrics', () => metricsCollector.getSnapshot());
+
+ipcMain.handle('beta:check-updates', () => updateService.checkForUpdates());
+ipcMain.handle('beta:download-update', () => updateService.downloadUpdate());
+ipcMain.handle('beta:install-update', () => {
+  updateService.installUpdate();
+  return true;
+});
+
 app.whenReady().then(() => {
   createWindow();
+
+  // Periodic beta update checks (6h cadence; skipped silently if offline).
+  updateService.startPeriodicChecks();
 
   try {
     globalShortcut.register('CommandOrControl+Shift+Space', () => {
@@ -247,6 +285,8 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  updateService?.stopPeriodicChecks();
+  updateService?.dispose();
 });
 
 app.on('window-all-closed', () => {

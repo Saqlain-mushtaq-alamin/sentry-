@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { BookmarkItem, UserSettings } from '../shared/types';
+import { BetaConsentSettings, BetaUpdateStatusEvent, FeedbackInput } from '../shared/beta';
 
 contextBridge.exposeInMainWorld('sentry', {
   // Window Controls
@@ -174,6 +175,22 @@ contextBridge.exposeInMainWorld('sentry', {
   // Voice Input Transcription
   voice: {
     transcribe: (audio: ArrayBuffer, mime: string) => ipcRenderer.invoke('voice:transcribe', audio, mime),
+  },
+
+  // Beta Program (Phase 15): feedback, consent, metrics, updates
+  beta: {
+    getStatus: () => ipcRenderer.invoke('beta:get-status'),
+    submitFeedback: (input: FeedbackInput) => ipcRenderer.invoke('beta:submit-feedback', input),
+    setConsent: (consent: BetaConsentSettings) => ipcRenderer.invoke('beta:set-consent', consent),
+    getMetrics: () => ipcRenderer.invoke('beta:get-metrics'),
+    checkForUpdates: () => ipcRenderer.invoke('beta:check-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('beta:download-update'),
+    installUpdate: () => ipcRenderer.invoke('beta:install-update'),
+    onUpdateStatus: (callback: (status: BetaUpdateStatusEvent) => void) => {
+      const handler = (_evt: unknown, status: BetaUpdateStatusEvent) => callback(status);
+      ipcRenderer.on('beta:update-status', handler);
+      return () => ipcRenderer.removeListener('beta:update-status', handler);
+    },
   },
 
   // Subscriptions
