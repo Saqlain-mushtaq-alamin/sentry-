@@ -192,6 +192,12 @@ export default function App(): React.JSX.Element {
     }
   }, []);
 
+  // Typed notification helper — keeps the AgentNotification.type union intact
+  // (a bare array literal followed by .slice() would widen `type` to string).
+  const addNotification = useCallback((notification: AgentNotification) => {
+    setNotifications((prev) => [...prev, notification].slice(-50));
+  }, []);
+
   // Step 2: Content measurement with ResizeObserver (no hardcoded offsets!)
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -260,17 +266,14 @@ export default function App(): React.JSX.Element {
   const handleSendTask = async (instruction: string) => {
     setLastInstruction(instruction);
     setTaskState(TaskState.EXECUTING);
-    setNotifications((prev) => [
-      ...prev,
-      {
-        id: `notif-${Date.now()}`,
-        type: 'info',
-        title: 'Task Started',
-        message: `Agent executing: "${instruction}"`,
-        timestamp: Date.now(),
-        read: false,
-      },
-    ].slice(-50));
+    addNotification({
+      id: `notif-${Date.now()}`,
+      type: 'info',
+      title: 'Task Started',
+      message: `Agent executing: "${instruction}"`,
+      timestamp: Date.now(),
+      read: false,
+    });
 
     if (window.sentry?.agent) {
       speakIfEnabled(`Executing: ${instruction}`);
@@ -290,32 +293,26 @@ export default function App(): React.JSX.Element {
         } else {
           speakIfEnabled('Task completed');
         }
-        setNotifications((prev) => [
-          ...prev,
-          {
-            id: `notif-done-${Date.now()}`,
-            type: 'success',
-            title: 'Task Completed',
-            message: summary || `Completed task: "${instruction}"`,
-            timestamp: Date.now(),
-            read: false,
-          },
-        ].slice(-50));
+        addNotification({
+          id: `notif-done-${Date.now()}`,
+          type: 'success',
+          title: 'Task Completed',
+          message: summary || `Completed task: "${instruction}"`,
+          timestamp: Date.now(),
+          read: false,
+        });
       } else {
         setTaskState(TaskState.FAILED);
         const errMessage = res.error || res.result?.error || 'Failed to complete agent task';
         speakIfEnabled('Task failed');
-        setNotifications((prev) => [
-          ...prev,
-          {
-            id: `notif-err-${Date.now()}`,
-            type: 'error',
-            title: 'Task Failed',
-            message: errMessage,
-            timestamp: Date.now(),
-            read: false,
-          },
-        ].slice(-50));
+        addNotification({
+          id: `notif-err-${Date.now()}`,
+          type: 'error',
+          title: 'Task Failed',
+          message: errMessage,
+          timestamp: Date.now(),
+          read: false,
+        });
       }
     }
   };
@@ -340,29 +337,23 @@ export default function App(): React.JSX.Element {
   const handleSaveRecipe = async (instruction: string) => {
     try {
       await window.sentry?.agent?.saveRecipe(instruction);
-      setNotifications((prev) => [
-        ...prev,
-        {
-          id: `recipe-saved-${Date.now()}`,
-          type: 'success',
-          title: 'Recipe Saved',
-          message: 'Saved to your recipes. Access via the menu.',
-          timestamp: Date.now(),
-          read: false,
-        },
-      ].slice(-50));
+      addNotification({
+        id: `recipe-saved-${Date.now()}`,
+        type: 'success',
+        title: 'Recipe Saved',
+        message: 'Saved to your recipes. Access via the menu.',
+        timestamp: Date.now(),
+        read: false,
+      });
     } catch {
-      setNotifications((prev) => [
-        ...prev,
-        {
-          id: `recipe-err-${Date.now()}`,
-          type: 'error',
-          title: 'Save Failed',
-          message: 'Failed to save recipe.',
-          timestamp: Date.now(),
-          read: false,
-        },
-      ].slice(-50));
+      addNotification({
+        id: `recipe-err-${Date.now()}`,
+        type: 'error',
+        title: 'Save Failed',
+        message: 'Failed to save recipe.',
+        timestamp: Date.now(),
+        read: false,
+      });
     }
   };
 
