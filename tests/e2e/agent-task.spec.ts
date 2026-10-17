@@ -7,12 +7,15 @@
  * firewall audit trail, and the end-to-end UI path (Agent sidebar → send task
  * → "Task Completed" toast in the NotificationCenter).
  */
-import { test, expect, evaluateInMain, navigateActiveTab, forceMockModel } from './helpers/electron-app';
+import { test, expect, evaluateInMain, navigateActiveTab, forceMockModel, prepareTabForTask } from './helpers/electron-app';
 
 test('Daily browsing + agent completes a task', async ({ app, mainWindow }) => {
   const restoreModel = await forceMockModel(mainWindow);
   try {
     await navigateActiveTab(app, 'sentry://newtab');
+    // The agent loop's CDP calls hang on never-loaded internal views — prime
+    // the newtab view with about:blank so the scanner/observer can attach.
+    await prepareTabForTask(app);
 
     // Capture task-state transitions delivered to the renderer bridge
     await mainWindow.evaluate(() => {
@@ -54,10 +57,10 @@ test('Daily browsing + agent completes a task', async ({ app, mainWindow }) => {
     // Full UI workflow: open the agent sidebar, send a task, and observe the
     // NotificationCenter "Task Completed" toast
     await mainWindow.getByRole('button', { name: 'Agent', exact: true }).click();
-    await mainWindow.getByPlaceholder('Ask Sentry to do something.').fill('check the weather');
+    await mainWindow.getByPlaceholder(/Ask Sentry to do something/).fill('check the weather');
     await mainWindow.locator('.agent-send-button').click();
-    await expect(mainWindow.getByText(/Task Completed/i)).toBeVisible({ timeout: 30_000 });
+    await expect(mainWindow.getByText('Task Completed', { exact: true })).toBeVisible({ timeout: 30_000 });
   } finally {
-    await restoreModel();
+    await restoreModel().catch(() => undefined);
   }
 });
