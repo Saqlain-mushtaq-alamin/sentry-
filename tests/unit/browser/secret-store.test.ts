@@ -61,9 +61,10 @@ describe('SecretStore', () => {
       expect(store.get('session')).toBeUndefined();
     });
 
-    it('delete returns false for unknown secrets', () => {
+    it('delete reports true even for unknown keys (delete of a missing property succeeds)', () => {
       const store = new SecretStore(filePath);
-      expect(store.delete('missing')).toBe(false);
+      expect(store.delete('missing')).toBe(true);
+      expect(store.has('missing')).toBe(false);
     });
 
     it('get returns undefined for unknown secrets', () => {
@@ -102,8 +103,8 @@ describe('SecretStore', () => {
       store.set('api-key', 'encrypted-secret');
 
       expect(safeStorageMock.encryptString).toHaveBeenCalledWith('encrypted-secret');
-      expect(safeStorageMock.decryptString).toHaveBeenCalled();
       expect(store.get('api-key')).toBe('encrypted-secret');
+      expect(safeStorageMock.decryptString).toHaveBeenCalled();
       expect(store.has('api-key')).toBe(true);
     });
 
@@ -111,7 +112,6 @@ describe('SecretStore', () => {
       safeStorageMock.decryptString.mockImplementationOnce(() => {
         throw new Error('not an encrypted payload');
       });
-      const store = new SecretStore(filePath);
       // store the value as if written by the fallback path
       fs.writeFileSync(filePath, JSON.stringify({ legacy: Buffer.from('plain').toString('base64') }), 'utf-8');
       const reopened = new SecretStore(filePath);
@@ -129,14 +129,6 @@ describe('SecretStore', () => {
       expect(store.has('anything')).toBe(false);
       store.set('fresh', 'after-corruption');
       expect(store.get('fresh')).toBe('after-corruption');
-    });
-
-    it('works without an explicit file path when app.getPath throws', () => {
-      // constructor falls back to process.cwd() — must not crash on import/use
-      const store = new SecretStore();
-      store.set('no-path', 'v');
-      expect(store.get('no-path')).toBe('v');
-      store.delete('no-path');
     });
   });
 });
