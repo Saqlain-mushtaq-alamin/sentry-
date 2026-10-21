@@ -436,7 +436,7 @@ export class AgentService {
           });
         }
         if (result.state === TaskState.FAILED) {
-          console.error('[AgentService] Task ended with state FAILED:', result.error);
+          console.error('[AgentService] Task ended with state FAILED:', result.error || 'Task execution stopped or failed.');
         }
         return { success: result.state === TaskState.COMPLETED, result, error: result.error };
       } catch (err: any) {
