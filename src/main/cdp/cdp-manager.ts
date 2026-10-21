@@ -50,6 +50,7 @@ export class CDPManager {
       if (!wc.debugger.isAttached()) {
         wc.debugger.attach('1.3');
       }
+      wc.debugger.sendCommand('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
 
       const conn: CDPConnection = {
         tabId,

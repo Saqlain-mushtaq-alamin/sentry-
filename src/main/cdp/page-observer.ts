@@ -77,6 +77,7 @@ export class PageObserver {
           index: i,
           tag: el.tagName.toLowerCase(),
           type: el.type || undefined,
+          value: (el.value && el.type !== 'password') ? String(el.value).slice(0, 80) : undefined,
           role: el.getAttribute('role') || undefined,
           label,
           href: el.href || undefined,
