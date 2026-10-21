@@ -25,6 +25,8 @@ export function buildSystemPrompt(context: AgentContext): string {
 3. Target must be the exact numeric index from the [index] list. Never invent indexes or guess selectors. If the needed element is not visible, use scroll (value: "down" or "up").
 4. For action "done", put your comprehensive final answer in the "answer" field.
 5. Use "memory" to store short key notes you must carry over to the next step.
+6. To search in a search box: use ONE "type" action and end the value with a newline, e.g. "value": "mount everest height\\n". This types and presses Enter together.
+7. If an element shows value:"..." with your text already in it, do NOT type again. Use "press" with value "Enter" instead.
 
 ## Response Format — Valid JSON only (no markdown fences)
 {
