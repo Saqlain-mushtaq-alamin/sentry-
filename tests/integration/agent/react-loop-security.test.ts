@@ -192,6 +192,26 @@ describe('ReActLoop security paths (real firewall, fake timers)', () => {
     expect(entry.executed).toBe(false);
   });
 
+  it('b2) pauses task after 2 consecutive denials instead of looping endlessly', async () => {
+    const adapter = scriptedAdapter([
+      resp({ type: 'click', target: '1', reason: 'Place the order' }),
+      resp({ type: 'click', target: '1', reason: 'Try placing order again' }),
+      doneResp('Never reached.'),
+    ]);
+    const { loop, executor } = makeHarness(adapter);
+
+    loop.onConfirmationRequired(async () => 'deny');
+
+    const result = await runLoop(loop, makeTask());
+
+    expect(result.state).toBe(TaskState.PAUSED);
+    expect(executor.execute).not.toHaveBeenCalled();
+    expect(result.summary).toContain('User denied action');
+    expect(result.actionLog.length).toBe(2);
+    expect(result.actionLog[0]?.executed).toBe(false);
+    expect(result.actionLog[1]?.executed).toBe(false);
+  });
+
   it('c) denies a CRITICAL password fill by default when no confirmation callback is registered', async () => {
     const adapter = scriptedAdapter([
       resp({ type: 'fill', target: '2', value: 'hunter2', reason: 'Fill password' }),
