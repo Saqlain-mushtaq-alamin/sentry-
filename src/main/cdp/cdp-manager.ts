@@ -116,6 +116,7 @@ export class CDPManager {
       const result = await view.webContents.debugger.sendCommand(method, params ?? {});
       return result as T;
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       // Suppress noise from harmless "not attached" or target navigation errors during rapid navigation
       if (
         !message.includes('detached') &&
