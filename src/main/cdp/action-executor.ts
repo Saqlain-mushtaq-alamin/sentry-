@@ -44,10 +44,6 @@ export class ActionExecutor {
         }
       }
 
-      await this.cdp.send(tabId, 'Emulation.setDeviceMetricsOverride', {
-        width: 1280, height: 800, deviceScaleFactor: 1, mobile: false,
-      });
-
       switch (action.type) {
         case 'click':
           success = await this.doClick(tabId, selector);
