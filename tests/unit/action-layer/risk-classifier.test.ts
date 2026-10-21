@@ -99,4 +99,21 @@ describe('RiskClassifier', () => {
     expect(result.tier).toBe(RiskTier.CRITICAL);
     expect(result.reasons[0]).toContain('Escalated from HIGH to CRITICAL');
   });
+
+  it('classifies Add to Cart as HIGH risk', () => {
+    mockSnapshot.interactiveElements.push({
+      index: 7,
+      tag: 'button',
+      role: 'button',
+      label: 'Add to Cart',
+      selector: '#add-cart-btn',
+      boundingBox: { x: 0, y: 0, width: 10, height: 10 },
+      isVisible: true,
+      isEnabled: true,
+    });
+    const action = createAction('click', '#add-cart-btn');
+    const result = classifier.classifyAction(action, mockSnapshot, SiteTrustLevel.READ_ACT);
+    expect(result.tier).toBe(RiskTier.HIGH);
+    expect(result.policyRulesFired).toContain('cart-action');
+  });
 });
