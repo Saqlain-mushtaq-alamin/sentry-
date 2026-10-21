@@ -89,6 +89,7 @@ export class ReActLoop {
     const actionLog: ActionLogEntry[] = [];
     let stepCount = 0;
     const recentActionKeys: string[] = [];
+    let consecutiveDenials = 0;
 
     let totalTokens = 0;
     let totalCost = 0;
@@ -318,6 +319,7 @@ export class ReActLoop {
 
       if (decision.requiresConfirmation) {
         this.sm.transition(TaskState.AWAITING_CONFIRMATION);
+        totalConfirmationsAsked++;
         let userResponse: ConfirmationResponse = 'deny';
 
         if (this.confirmationCallback) {
@@ -326,17 +328,33 @@ export class ReActLoop {
           userResponse = decision.riskTier === RiskTier.CRITICAL ? 'deny' : 'allow_once';
         }
 
-        this.sm.transition(TaskState.EXECUTING);
-
         if (userResponse === 'deny') {
+          totalConfirmationsDenied++;
+          consecutiveDenials++;
           actionLog.push({ action: proposed, decision, executed: false, timestamp: Date.now() });
+
+          // If the user denied multiple actions in a row, halt the loop instead of endlessly asking
+          if (consecutiveDenials >= 2) {
+            this.sm.transition(TaskState.PAUSED);
+            return {
+              state: TaskState.PAUSED,
+              actionLog,
+              totalSteps: stepCount + 1,
+              summary: `Task paused: User denied action ("${proposed.reason || proposed.type}").`,
+            };
+          }
+
+          this.sm.transition(TaskState.EXECUTING);
           messages.push({
             role: 'user',
-            content: `The user denied this action: "${proposed.reason}". Please find an alternative approach or ask the user.`,
+            content: `CRITICAL: The user explicitly DENIED this action: "${proposed.reason || proposed.type}". Do NOT attempt this action again or search for alternative purchase/order/payment/cart actions. If you cannot complete the user's request without this action, you MUST immediately call done or ask_user to explain that the action was denied.`,
           });
           stepCount++;
           continue;
         }
+
+        consecutiveDenials = 0;
+        this.sm.transition(TaskState.EXECUTING);
       }
 
       // ── ACT ──────────────────────────────────────────────────────────────
@@ -440,7 +458,6 @@ export class ReActLoop {
       totalDecisions++;
       if (decision.allowed) totalAllowed++;
       else totalBlocked++;
-      if (decision.requiresConfirmation) totalConfirmationsAsked++;
       totalScans++;
       if (!scanReport.isClean) detectionsFound++;
       totalObservationLatency += obsLatency;
