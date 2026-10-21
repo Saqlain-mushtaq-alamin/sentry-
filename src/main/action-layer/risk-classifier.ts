@@ -70,9 +70,8 @@ const rules: PolicyRule[] = [
       const label = (ctx.targetElement as InteractiveElement)?.label || '';
       const reason = ctx.action.reason || '';
       const target = ctx.action.target || '';
-      const value = ctx.action.value || '';
-      const combined = `${label} ${reason} ${target} ${value}`;
-      return /\b(pay now|checkout|submit payment|buy now|place order|confirm order|complete purchase|purchase now|finish purchase|confirm purchase)\b/i.test(combined);
+      const combined = `${label} ${reason} ${target}`;
+      return /\b(pay now|checkout|submit payment|buy now)\b/i.test(combined);
     },
     riskTier: RiskTier.CRITICAL,
   },
