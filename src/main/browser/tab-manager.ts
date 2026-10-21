@@ -24,7 +24,19 @@ export class TabManager {
   };
   private contentBounds: { x: number; y: number; width: number; height: number } | null = null;
   private isViewHidden = false;
-  private isNavigatingHistory = false;
+  private navigatingHistoryTabs: Set<string> = new Set();
+
+  private safeLoadURL(view: WebContentsView, url: string, context = 'Failed to navigate'): void {
+    view.webContents.loadURL(url).catch((err: any) => {
+      const code = err?.code;
+      const errno = err?.errno;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (code === 'ERR_ABORTED' || errno === -3 || msg.includes('ERR_ABORTED') || msg.includes('(-3)')) {
+        return;
+      }
+      console.error(`${context}:`, err);
+    });
+  }
 
   constructor(window: BrowserWindow, storage: StorageManager) {
     this.window = window;
@@ -136,7 +148,7 @@ export class TabManager {
 
       this.setupViewEvents(id, view);
       this.views.set(id, view);
-      view.webContents.loadURL(tab.url).catch((err) => console.error('Wake tab loadURL failed:', err));
+      this.safeLoadURL(view, tab.url, 'Wake tab loadURL failed');
     }
 
     this.notifyTabsUpdated();
@@ -180,7 +192,7 @@ export class TabManager {
     this.switchTab(id);
 
     if (!formattedUrl.startsWith('sentry://')) {
-      view.webContents.loadURL(formattedUrl).catch((err) => console.error('Load URL failed:', err));
+      this.safeLoadURL(view, formattedUrl, 'Load URL failed');
     }
 
     return tab;
@@ -202,6 +214,7 @@ export class TabManager {
     const index = this.tabOrder.indexOf(id);
     this.tabs.delete(id);
     this.tabHistory.delete(id);
+    this.navigatingHistoryTabs.delete(id);
     this.tabOrder = this.tabOrder.filter((tId) => tId !== id);
 
     if (this.tabs.size === 0) {
@@ -294,7 +307,8 @@ export class TabManager {
     if (!fromHistory) {
       const hist = this.tabHistory.get(id);
       if (hist) {
-        if (hist.entries[hist.currentIndex] !== url) {
+        const norm = (u: string) => u.replace(/\/+$/, '');
+        if (norm(hist.entries[hist.currentIndex] || '') !== norm(url)) {
           hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
           hist.entries.push(url);
           hist.currentIndex = hist.entries.length - 1;
@@ -303,6 +317,7 @@ export class TabManager {
     }
 
     if (url.startsWith('sentry://')) {
+      this.navigatingHistoryTabs.delete(id);
       try {
         this.window.contentView.removeChildView(view);
       } catch {
@@ -324,7 +339,7 @@ export class TabManager {
       tab.isLoading = true;
       this.updateTabNavState(id);
       this.notifyTabsUpdated();
-      view.webContents.loadURL(url).catch((err) => console.error('Failed to navigate:', err));
+      this.safeLoadURL(view, url, 'Failed to navigate');
     }
   }
 
@@ -334,18 +349,33 @@ export class TabManager {
     const hist = this.tabHistory.get(id);
     if (!tab) return;
 
-    if (hist && hist.currentIndex > 0) {
-      this.isNavigatingHistory = true;
-      hist.currentIndex--;
-      const targetUrl = hist.entries[hist.currentIndex]!;
-      this.navigate(id, targetUrl, true);
-      this.isNavigatingHistory = false;
+    // 1. If currently on a web page and webContents can go back natively, use it!
+    if (view && !tab.url.startsWith('sentry://') && view.webContents.canGoBack()) {
+      this.navigatingHistoryTabs.add(id);
+      view.webContents.goBack();
+      if (hist && hist.currentIndex > 0) {
+        hist.currentIndex--;
+      }
+      this.updateTabNavState(id);
+      this.notifyTabsUpdated();
       return;
     }
 
+    // 2. Otherwise walk the internal tab history (e.g. returning to sentry://newtab or across internal pages)
+    if (hist && hist.currentIndex > 0) {
+      this.navigatingHistoryTabs.add(id);
+      hist.currentIndex--;
+      const targetUrl = hist.entries[hist.currentIndex]!;
+      this.navigate(id, targetUrl, true);
+      return;
+    }
+
+    // 3. Fallback to webContents if available
     if (view && view.webContents.canGoBack()) {
+      this.navigatingHistoryTabs.add(id);
       view.webContents.goBack();
       this.updateTabNavState(id);
+      this.notifyTabsUpdated();
     }
   }
 
@@ -355,18 +385,33 @@ export class TabManager {
     const hist = this.tabHistory.get(id);
     if (!tab) return;
 
-    if (hist && hist.currentIndex < hist.entries.length - 1) {
-      this.isNavigatingHistory = true;
-      hist.currentIndex++;
-      const targetUrl = hist.entries[hist.currentIndex]!;
-      this.navigate(id, targetUrl, true);
-      this.isNavigatingHistory = false;
+    // 1. If currently on a web page and webContents can go forward natively, use it!
+    if (view && !tab.url.startsWith('sentry://') && view.webContents.canGoForward()) {
+      this.navigatingHistoryTabs.add(id);
+      view.webContents.goForward();
+      if (hist && hist.currentIndex < hist.entries.length - 1) {
+        hist.currentIndex++;
+      }
+      this.updateTabNavState(id);
+      this.notifyTabsUpdated();
       return;
     }
 
+    // 2. Otherwise walk forward through internal tab history (e.g. from sentry://newtab forward to web page)
+    if (hist && hist.currentIndex < hist.entries.length - 1) {
+      this.navigatingHistoryTabs.add(id);
+      hist.currentIndex++;
+      const targetUrl = hist.entries[hist.currentIndex]!;
+      this.navigate(id, targetUrl, true);
+      return;
+    }
+
+    // 3. Fallback to webContents if available
     if (view && view.webContents.canGoForward()) {
+      this.navigatingHistoryTabs.add(id);
       view.webContents.goForward();
       this.updateTabNavState(id);
+      this.notifyTabsUpdated();
     }
   }
 
@@ -447,8 +492,11 @@ export class TabManager {
     const canGoBackHist = hist ? hist.currentIndex > 0 : false;
     const canGoForwardHist = hist ? hist.currentIndex < hist.entries.length - 1 : false;
 
-    tab.canGoBack = canGoBackHist || (wc ? wc.canGoBack() : false);
-    tab.canGoForward = canGoForwardHist || (wc ? wc.canGoForward() : false);
+    const wcCanGoBack = Boolean(wc && !wc.isDestroyed() && wc.canGoBack());
+    const wcCanGoForward = Boolean(wc && !wc.isDestroyed() && wc.canGoForward());
+
+    tab.canGoBack = canGoBackHist || wcCanGoBack;
+    tab.canGoForward = canGoForwardHist || wcCanGoForward;
   }
 
   private setupViewEvents(tabId: string, view: WebContentsView): void {
@@ -540,6 +588,18 @@ export class TabManager {
       }
     });
 
+    wc.on('did-fail-load', (_evt, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+      if (isMainFrame) {
+        this.navigatingHistoryTabs.delete(tabId);
+        const tab = this.tabs.get(tabId);
+        if (tab) {
+          tab.isLoading = false;
+          this.updateTabNavState(tabId);
+          this.notifyTabsUpdated();
+        }
+      }
+    });
+
     wc.on('page-title-updated', (_evt, title) => {
       const tab = this.tabs.get(tabId);
       if (tab) {
@@ -557,39 +617,47 @@ export class TabManager {
       }
     });
 
-    wc.on('did-navigate', (_evt, url) => {
+    const handleNavigation = (url: string, inPage = false) => {
       const tab = this.tabs.get(tabId);
-      if (tab) {
-        tab.url = url;
-        if (!this.isNavigatingHistory) {
-          const hist = this.tabHistory.get(tabId);
-          if (hist && hist.entries[hist.currentIndex] !== url) {
+      if (!tab) return;
+
+      tab.url = url;
+      const isHistory = this.navigatingHistoryTabs.has(tabId);
+      this.navigatingHistoryTabs.delete(tabId);
+
+      const hist = this.tabHistory.get(tabId);
+      if (hist) {
+        const norm = (u: string) => u.replace(/\/+$/, '');
+        const currentEntry = hist.entries[hist.currentIndex];
+
+        if (isHistory) {
+          // Keep current index, update canonical url if same page
+          if (currentEntry && norm(currentEntry) === norm(url)) {
+            hist.entries[hist.currentIndex] = url;
+          }
+        } else {
+          // New navigation: only record if destination is genuinely different
+          if (!currentEntry || norm(currentEntry) !== norm(url)) {
             hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
             hist.entries.push(url);
             hist.currentIndex = hist.entries.length - 1;
           }
         }
-        this.updateTabNavState(tabId);
-        this.storage.addHistoryEntry(url, tab.title, tab.favicon);
-        this.notifyTabsUpdated();
       }
+
+      this.updateTabNavState(tabId);
+      if (!inPage) {
+        this.storage.addHistoryEntry(url, tab.title, tab.favicon);
+      }
+      this.notifyTabsUpdated();
+    };
+
+    wc.on('did-navigate', (_evt, url) => {
+      handleNavigation(url, false);
     });
 
     wc.on('did-navigate-in-page', (_evt, url) => {
-      const tab = this.tabs.get(tabId);
-      if (tab) {
-        tab.url = url;
-        if (!this.isNavigatingHistory) {
-          const hist = this.tabHistory.get(tabId);
-          if (hist && hist.entries[hist.currentIndex] !== url) {
-            hist.entries = hist.entries.slice(0, hist.currentIndex + 1);
-            hist.entries.push(url);
-            hist.currentIndex = hist.entries.length - 1;
-          }
-        }
-        this.updateTabNavState(tabId);
-        this.notifyTabsUpdated();
-      }
+      handleNavigation(url, true);
     });
   }
 

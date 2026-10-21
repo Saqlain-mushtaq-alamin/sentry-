@@ -505,7 +505,14 @@ export class ReActLoop {
       stepCount++;
     }
 
-    return { state: this.sm.getState(), actionLog, totalSteps: stepCount };
+    return {
+      state: this.sm.getState(),
+      actionLog,
+      totalSteps: stepCount,
+      error: this.sm.getState() === TaskState.FAILED
+        ? (this.sm.isStopped() ? 'Task cancelled by user.' : 'Task execution stopped.')
+        : undefined,
+    };
   }
 
   private fail(message: string, actionLog: ActionLogEntry[], totalSteps: number): TaskResult {
