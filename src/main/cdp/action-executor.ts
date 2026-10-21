@@ -44,6 +44,10 @@ export class ActionExecutor {
         }
       }
 
+      await this.cdp.send(tabId, 'Emulation.setDeviceMetricsOverride', {
+        width: 1280, height: 800, deviceScaleFactor: 1, mobile: false,
+      });
+
       switch (action.type) {
         case 'click':
           success = await this.doClick(tabId, selector);
@@ -195,36 +199,52 @@ export class ActionExecutor {
       throw new Error(`Element not found or not focusable: ${selector}`);
     }
 
-    await this.cdp.send(tabId, 'Input.insertText', { text });
+    const submit = /[\r\n]$/.test(text);
+    await this.cdp.send(tabId, 'Input.insertText', { text: text.replace(/[\r\n]+$/, '') });
+    if (submit) await this.doPress(tabId, 'Enter');
     return true;
   }
 
   private async doPress(tabId: string, key = 'Enter'): Promise<boolean> {
-    if (key.toLowerCase() === 'enter' || key === '\n' || key === '\r') {
+    const getUrl = async () =>
+      (await this.cdp.send<{ result: { value: string } }>(tabId, 'Runtime.evaluate', {
+        expression: 'location.href', returnByValue: true,
+      }))?.result?.value;
+
+    const isEnter = key.toLowerCase() === 'enter' || key === '\n' || key === '\r';
+    const before = await getUrl();
+
+    if (isEnter) {
       await this.cdp.send(tabId, 'Input.dispatchKeyEvent', {
-        type: 'keyDown',
-        key: 'Enter',
-        code: 'Enter',
-        windowsVirtualKeyCode: 13,
-        text: '\r',
+        type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r',
       });
       await this.cdp.send(tabId, 'Input.dispatchKeyEvent', {
-        type: 'keyUp',
-        key: 'Enter',
-        code: 'Enter',
-        windowsVirtualKeyCode: 13,
+        type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
       });
+      await new Promise(r => setTimeout(r, 800));
+
+      if ((await getUrl()) === before) {
+        // Enter did nothing: submit the search form directly
+        await this.cdp.send(tabId, 'Runtime.evaluate', {
+          expression: `(() => {
+            const el = document.activeElement, f = el && el.form;
+            if (!f) return false;
+            const searchy = /search/i.test(f.action || '') || f.getAttribute('role') === 'search'
+              || el.type === 'search' || el.name === 'q';
+            if (!searchy) return false;
+            f.requestSubmit ? f.requestSubmit() : f.submit();
+            return true;
+          })()`,
+          returnByValue: true,
+        });
+      }
     } else {
       await this.cdp.send(tabId, 'Input.dispatchKeyEvent', {
-        type: 'keyDown',
-        key,
-        text: key.length === 1 ? key : undefined,
+        type: 'keyDown', key, text: key.length === 1 ? key : undefined,
       });
-      await this.cdp.send(tabId, 'Input.dispatchKeyEvent', {
-        type: 'keyUp',
-        key,
-      });
+      await this.cdp.send(tabId, 'Input.dispatchKeyEvent', { type: 'keyUp', key });
     }
+
     await this.cdp.waitForLoad(tabId);
     return true;
   }
