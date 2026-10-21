@@ -200,7 +200,10 @@ describe('ReActLoop security paths (real firewall, fake timers)', () => {
     ]);
     const { loop, executor } = makeHarness(adapter);
 
-    loop.onConfirmationRequired(async () => 'deny');
+    loop.onConfirmationRequired(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+      return 'deny';
+    });
 
     const result = await runLoop(loop, makeTask());
 
