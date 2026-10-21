@@ -69,8 +69,7 @@ const rules: PolicyRule[] = [
     condition: (ctx) => {
       const label = (ctx.targetElement as InteractiveElement)?.label || '';
       const reason = ctx.action.reason || '';
-      const target = ctx.action.target || '';
-      const combined = `${label} ${reason} ${target}`;
+      const combined = `${label} ${reason}`;
       return /\b(pay now|checkout|submit payment|buy now)\b/i.test(combined);
     },
     riskTier: RiskTier.CRITICAL,
@@ -84,9 +83,7 @@ const rules: PolicyRule[] = [
     condition: (ctx) => {
       const label = (ctx.targetElement as InteractiveElement)?.label || '';
       const reason = ctx.action.reason || '';
-      const target = ctx.action.target || '';
-      const value = ctx.action.value || '';
-      const combined = `${label} ${reason} ${target} ${value}`;
+      const combined = `${label} ${reason}`;
       return /\b(add to cart|add to bag|add to basket|add item|cart\/add|shopping cart|view cart|proceed to cart|add to order)\b/i.test(combined);
     },
     riskTier: RiskTier.HIGH,
