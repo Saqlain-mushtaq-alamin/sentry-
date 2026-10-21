@@ -22,7 +22,7 @@ import { ConfirmationBar } from './components/ConfirmationBar';
 import { FeedbackDialog } from './components/FeedbackDialog';
 import { useFrozenFrame } from './hooks/useHideNativeView';
 import { speak, stop } from './services/tts';
-import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep } from '../shared/types';
+import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep, ConfirmationResponse } from '../shared/types';
 import './styles/index.css';
 
 declare global {
@@ -779,7 +779,7 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      {pendingConfirmation && (
+      {pendingConfirmation && !isSidebarOpen && (
         <ConfirmationBar
           action={pendingConfirmation.action}
           riskTier={pendingConfirmation.decision.riskTier}
@@ -795,6 +795,7 @@ export default function App(): React.JSX.Element {
             await window.sentry?.agent?.respondConfirmation?.(pendingConfirmation.action.id, response);
             setPendingConfirmation(null);
           }}
+          floating
         />
       )}
 
@@ -934,6 +935,13 @@ export default function App(): React.JSX.Element {
             lastResult={lastAgentResult}
             routingDecision={routingDecision}
             lastInstruction={lastInstruction}
+            pendingConfirmation={pendingConfirmation}
+            onRespondConfirmation={async (response) => {
+              if (pendingConfirmation) {
+                await window.sentry?.agent?.respondConfirmation?.(pendingConfirmation.action.id, response);
+                setPendingConfirmation(null);
+              }
+            }}
             onClearResult={() => setLastAgentResult(null)}
             onSendTask={handleSendTask}
             onPause={handlePause}
