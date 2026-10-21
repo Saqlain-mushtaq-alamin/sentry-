@@ -11,13 +11,14 @@ import {
   Sparkles,
   BookmarkPlus,
 } from 'lucide-react';
-import { TaskState, ActionLogEntry, TaskPlan } from '../../shared/types';
+import { TaskState, ActionLogEntry, TaskPlan, ProposedAction, FirewallDecision, ConfirmationResponse } from '../../shared/types';
 import { AgentResultCard } from './AgentResultCard';
 import { ActionLog } from '../overlays/ActionLog';
 import { VoiceControls } from './VoiceControls';
 import { IconButton } from './ui/IconButton';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
+import { ConfirmationBar } from './ConfirmationBar';
 import './AgentSidebar.css';
 
 export interface AgentResultData {
@@ -36,6 +37,11 @@ interface AgentSidebarProps {
   lastResult?: AgentResultData | null;
   routingDecision?: any;
   lastInstruction?: string;
+  pendingConfirmation?: {
+    action: ProposedAction;
+    decision: FirewallDecision;
+  } | null;
+  onRespondConfirmation?: (response: ConfirmationResponse) => void;
   onClearResult?: () => void;
   onSendTask: (instruction: string) => void;
   onPause: () => void;
