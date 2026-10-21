@@ -68,11 +68,30 @@ const rules: PolicyRule[] = [
     priority: 110,
     condition: (ctx) => {
       const label = (ctx.targetElement as InteractiveElement)?.label || '';
-      return /\b(pay now|checkout|submit payment|buy now)\b/i.test(label);
+      const reason = ctx.action.reason || '';
+      const target = ctx.action.target || '';
+      const value = ctx.action.value || '';
+      const combined = `${label} ${reason} ${target} ${value}`;
+      return /\b(pay now|checkout|submit payment|buy now|place order|confirm order|complete purchase|purchase now|finish purchase|confirm purchase)\b/i.test(combined);
     },
     riskTier: RiskTier.CRITICAL,
   },
   // HIGH Rules (Priority 80+)
+  {
+    id: 'cart-action',
+    name: 'Cart Action',
+    description: 'Adding or modifying items in shopping cart is HIGH',
+    priority: 95,
+    condition: (ctx) => {
+      const label = (ctx.targetElement as InteractiveElement)?.label || '';
+      const reason = ctx.action.reason || '';
+      const target = ctx.action.target || '';
+      const value = ctx.action.value || '';
+      const combined = `${label} ${reason} ${target} ${value}`;
+      return /\b(add to cart|add to bag|add to basket|add item|cart\/add|shopping cart|view cart|proceed to cart|add to order)\b/i.test(combined);
+    },
+    riskTier: RiskTier.HIGH,
+  },
   {
     id: 'remove-action',
     name: 'Remove Action',
