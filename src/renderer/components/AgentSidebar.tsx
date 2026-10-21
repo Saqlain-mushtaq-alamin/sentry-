@@ -332,6 +332,21 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
 
       {/* ── Pinned Footer: Prompt Input Box ───────────────────── */}
       <div className="agent-sidebar-footer">
+        {pendingConfirmation && onRespondConfirmation && (
+          <ConfirmationBar
+            action={pendingConfirmation.action}
+            riskTier={pendingConfirmation.decision.riskTier}
+            explanation={pendingConfirmation.decision.explanation}
+            domain={(() => {
+              try {
+                return new URL(pendingConfirmation.action.url).hostname;
+              } catch {
+                return 'this site';
+              }
+            })()}
+            onConfirm={onRespondConfirmation}
+          />
+        )}
         <div className="agent-input-container">
           <textarea
             ref={inputRef}
