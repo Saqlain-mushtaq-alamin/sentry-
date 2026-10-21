@@ -23,7 +23,8 @@
 .toast-stack {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  left: 24px;
+  right: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
