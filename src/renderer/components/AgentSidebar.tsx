@@ -75,6 +75,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   lastResult,
   routingDecision,
   lastInstruction,
+  pendingConfirmation,
+  onRespondConfirmation,
   onClearResult,
   onSendTask,
   onPause,
