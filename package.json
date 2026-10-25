@@ -4,6 +4,7 @@
   "description": "Sentry Agentic Browser",
   "main": "dist/main/main/index.js",
   "scripts": {
+    "start": "npm run dev",
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite --config vite.config.ts",
     "dev:main": "wait-on http://localhost:5173 && tsc -p tsconfig.main.json && electron .",

@@ -598,23 +598,43 @@ export class AgentService {
     ipcMain.handle('secrets:has', (_, name: string) => {
       if (name === 'openai') return this.secretStore.has('openai') || !!process.env.OPENAI_API_KEY;
       if (name === 'anthropic') return this.secretStore.has('anthropic') || !!process.env.ANTHROPIC_API_KEY;
+      if (name === 'groq') return this.secretStore.has('groq') || !!process.env.GROQ_API_KEY;
       return this.secretStore.has(name);
     });
 
     // ── Voice Transcribe IPC ──────────────────────────────────────────────
     ipcMain.handle('voice:transcribe', async (_, audio: ArrayBuffer, mime: string) => {
-      const key = this.secretStore.get('openai') || process.env.OPENAI_API_KEY;
-      if (!key) throw new Error('Add an OpenAI API key in AI Models to use voice input.');
+      const openAiKey = this.secretStore.get('openai') || process.env.OPENAI_API_KEY;
+      const groqKey = this.secretStore.get('groq') || process.env.GROQ_API_KEY;
+
+      if (!openAiKey && !groqKey) {
+        throw new Error('Please add an OpenAI or Groq API key in AI Models (Settings) to use voice input.');
+      }
+
       const form = new FormData();
-      form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), 'speech.webm');
+      const ext = mime?.includes('wav') ? 'speech.wav' : mime?.includes('mp4') ? 'speech.mp4' : 'speech.webm';
+      form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), ext);
+
+      if (groqKey && !openAiKey) {
+        form.append('model', 'whisper-large-v3');
+        const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${groqKey}` },
+          body: form,
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = (await res.json()) as { text: string };
+        return data.text;
+      }
+
       form.append('model', 'whisper-1');
       const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${key}` },
+        headers: { Authorization: `Bearer ${openAiKey}` },
         body: form,
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = await res.json() as { text: string };
+      const data = (await res.json()) as { text: string };
       return data.text;
     });
 
