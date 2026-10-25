@@ -287,6 +287,12 @@ export const AgentCommandBox: React.FC<AgentCommandBoxProps> = ({
                 onTranscriptReceived={(transcript) => {
                   setInput(transcript);
                 }}
+                onSendCommand={(command) => {
+                  if (command.trim()) {
+                    onSendTask(command.trim());
+                    setInput('');
+                  }
+                }}
               />
               <button 
                 className="agent-send-btn" 
