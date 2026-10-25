@@ -78,6 +78,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   const [status, setStatus] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const [liveText, setLiveText] = useState('');
   const [error, setError] = useState('');
+  const [hasVoiceKey, setHasVoiceKey] = useState<boolean | null>(null);
   const [autoSend, setAutoSend] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('sentry:voice:autoSend');
@@ -94,6 +95,15 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
       // ignore
     }
   }, [autoSend]);
+
+  useEffect(() => {
+    const sentry = (window as any).sentry;
+    if (sentry?.secrets?.has) {
+      Promise.all([sentry.secrets.has('openai'), sentry.secrets.has('groq')]).then(([openAi, groq]) => {
+        setHasVoiceKey(openAi || groq);
+      });
+    }
+  }, []);
 
   const handleFinishTranscript = (text: string, forceSend = false) => {
     const trimmed = text.trim();
@@ -317,6 +327,33 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
                   ? 'Processing with Whisper AI…'
                   : 'Speak a command (e.g., "Search for laptops on eBay", "Summarize this article")'}
               </p>
+            )}
+
+            {hasVoiceKey === false && (
+              <div style={{
+                background: 'rgba(230, 162, 60, 0.1)',
+                border: '1px solid rgba(230, 162, 60, 0.3)',
+                padding: '6px 8px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '11px',
+                color: 'var(--text-2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <span>Desktop voice requires a free Groq or OpenAI key.</span>
+                <button
+                  type="button"
+                  className="voice-action-btn primary"
+                  style={{ alignSelf: 'flex-start', fontSize: '10px', padding: '2px 8px' }}
+                  onClick={() => {
+                    cancel();
+                    (window as any).sentry?.tabs?.create?.('sentry://models');
+                  }}
+                >
+                  Configure AI Models
+                </button>
+              </div>
             )}
 
             {onSendCommand && (
