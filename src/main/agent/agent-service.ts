@@ -1,5 +1,8 @@
 import { ipcMain, BrowserWindow, app } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { execFile } from 'child_process';
 import * as crypto from 'crypto';
 import { ReActLoop } from './react-loop';
 import { OpenAIAdapter } from './adapters/openai-adapter';
@@ -607,35 +610,55 @@ export class AgentService {
       const openAiKey = this.secretStore.get('openai') || process.env.OPENAI_API_KEY;
       const groqKey = this.secretStore.get('groq') || process.env.GROQ_API_KEY;
 
-      if (!openAiKey && !groqKey) {
-        throw new Error('Please add an OpenAI or Groq API key in AI Models (Settings) to use voice input.');
-      }
-
       const form = new FormData();
       const ext = mime?.includes('wav') ? 'speech.wav' : mime?.includes('mp4') ? 'speech.mp4' : 'speech.webm';
-      form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), ext);
+      form.append('file', new Blob([audio], { type: mime || 'audio/wav' }), ext);
 
+      // 1. If Groq key is configured, use Groq Whisper
       if (groqKey && !openAiKey) {
-        form.append('model', 'whisper-large-v3');
-        const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${groqKey}` },
-          body: form,
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data = (await res.json()) as { text: string };
-        return data.text;
+        try {
+          form.append('model', 'whisper-large-v3');
+          const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${groqKey}` },
+            body: form,
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { text: string };
+            if (data.text?.trim()) return data.text.trim();
+          }
+        } catch (e) {
+          console.warn('[Voice] Groq transcription error, attempting local fallback:', e);
+        }
       }
 
-      form.append('model', 'whisper-1');
-      const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${openAiKey}` },
-        body: form,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { text: string };
-      return data.text;
+      // 2. If OpenAI key is configured, use OpenAI Whisper
+      if (openAiKey) {
+        try {
+          form.append('model', 'whisper-1');
+          const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${openAiKey}` },
+            body: form,
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { text: string };
+            if (data.text?.trim()) return data.text.trim();
+          }
+        } catch (e) {
+          console.warn('[Voice] OpenAI transcription error, attempting local fallback:', e);
+        }
+      }
+
+      // 3. Local fallback: Windows built-in Speech Recognition Engine (0 API keys required)
+      if (process.platform === 'win32') {
+        const text = await this.transcribeWithWindowsSpeech(audio);
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      }
+
+      throw new Error('No speech detected. Please speak clearly into your microphone, or add a Groq/OpenAI key in Settings.');
     });
 
     // ── Privacy & Memory IPC ──────────────────────────────────────────────
