@@ -7,6 +7,8 @@ interface VoiceControlsProps {
   onSendCommand?: (command: string) => void;
   onListeningStateChange?: (isListening: boolean) => void;
   autoSendDefault?: boolean;
+}
+
 async function convertBlobToWav(blob: Blob): Promise<{ buffer: ArrayBuffer; mime: string }> {
   try {
     const rawBuffer = await blob.arrayBuffer();
