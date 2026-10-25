@@ -728,10 +728,21 @@ export class AgentService {
           $grammar = New-Object System.Speech.Recognition.DictationGrammar
           $engine.LoadGrammar($grammar)
           $engine.SetInputToWaveFile("${normalizedPath}")
-          $res = $engine.Recognize()
-          if ($res -and $res.Text) {
+          $texts = @()
+          $emptyCount = 0
+          while ($emptyCount -lt 4) {
+            $res = $engine.Recognize([TimeSpan]::FromSeconds(3))
+            if ($res -and $res.Text) {
+              $texts += $res.Text
+              $emptyCount = 0
+            } else {
+              $emptyCount++
+            }
+          }
+          $final = ($texts -join " ").Trim()
+          if ($final) {
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            Write-Output $res.Text
+            Write-Output $final
           }
         `;
 
