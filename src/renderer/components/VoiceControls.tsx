@@ -73,6 +73,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   const speechRecRef = useRef<any>(null);
   const chunks = useRef<Blob[]>([]);
   const webSpeechResultRef = useRef<string>('');
+  const forceSendRef = useRef<boolean>(false);
   
   const [status, setStatus] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const [liveText, setLiveText] = useState('');
