@@ -108,6 +108,60 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
         }
       }
 
+async function convertBlobToWav(blob: Blob): Promise<{ buffer: ArrayBuffer; mime: string }> {
+  try {
+    const rawBuffer = await blob.arrayBuffer();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) {
+      return { buffer: rawBuffer, mime: blob.type || 'audio/webm' };
+    }
+    const audioCtx = new AudioContextClass();
+    const decoded = await audioCtx.decodeAudioData(rawBuffer.slice(0));
+
+    const targetSampleRate = 16000;
+    const offlineCtx = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * targetSampleRate)), targetSampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(offlineCtx.destination);
+    source.start();
+    const rendered = await offlineCtx.startRendering();
+
+    const channelData = rendered.getChannelData(0);
+    const dataLength = channelData.length * 2;
+    const wavBuffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(wavBuffer);
+
+    // RIFF
+    view.setUint8(0, 0x52); view.setUint8(1, 0x49); view.setUint8(2, 0x46); view.setUint8(3, 0x46);
+    view.setUint32(4, 36 + dataLength, true);
+    view.setUint8(8, 0x57); view.setUint8(9, 0x41); view.setUint8(10, 0x56); view.setUint8(11, 0x45);
+    // fmt
+    view.setUint8(12, 0x66); view.setUint8(13, 0x6D); view.setUint8(14, 0x74); view.setUint8(15, 0x20);
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // mono
+    view.setUint32(24, targetSampleRate, true);
+    view.setUint32(28, targetSampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    // data
+    view.setUint8(36, 0x64); view.setUint8(37, 0x61); view.setUint8(38, 0x74); view.setUint8(39, 0x61);
+    view.setUint32(40, dataLength, true);
+
+    let offset = 44;
+    for (let i = 0; i < channelData.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    audioCtx.close();
+    return { buffer: wavBuffer, mime: 'audio/wav' };
+  } catch (err) {
+    console.warn('[VoiceControls] Audio conversion to WAV failed, sending raw blob:', err);
+    return { buffer: await blob.arrayBuffer(), mime: blob.type || 'audio/webm' };
+  }
+}
+
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         if (speechRecRef.current) {
@@ -119,7 +173,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
           speechRecRef.current = null;
         }
 
-        // If Web Speech API already captured the text, use it directly!
+        // If Web Speech API already captured the text (e.g. running in Chrome), use it directly!
         if (webSpeechResultRef.current && webSpeechResultRef.current.trim()) {
           setStatus('idle');
           onListeningStateChange?.(false);
@@ -131,13 +185,13 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
         try {
           const actualMime = rec.mimeType || 'audio/webm';
           const blob = new Blob(chunks.current, { type: actualMime });
-          const arrayBuffer = await blob.arrayBuffer();
+          const { buffer, mime } = await convertBlobToWav(blob);
 
           if (!window.sentry?.voice?.transcribe) {
             throw new Error('Voice transcription service is not ready.');
           }
 
-          const text = await window.sentry.voice.transcribe(arrayBuffer, actualMime);
+          const text = await window.sentry.voice.transcribe(buffer, mime);
           if (text && text.trim()) {
             setLiveText(text.trim());
             handleFinishTranscript(text.trim());
