@@ -492,8 +492,9 @@ export class TabManager {
     const canGoBackHist = hist ? hist.currentIndex > 0 : false;
     const canGoForwardHist = hist ? hist.currentIndex < hist.entries.length - 1 : false;
 
-    const wcCanGoBack = Boolean(wc && !wc.isDestroyed() && wc.canGoBack());
-    const wcCanGoForward = Boolean(wc && !wc.isDestroyed() && wc.canGoForward());
+    const isWcAlive = Boolean(wc && (typeof wc.isDestroyed === 'function' ? !wc.isDestroyed() : true));
+    const wcCanGoBack = Boolean(isWcAlive && typeof wc?.canGoBack === 'function' && wc.canGoBack());
+    const wcCanGoForward = Boolean(isWcAlive && typeof wc?.canGoForward === 'function' && wc.canGoForward());
 
     tab.canGoBack = canGoBackHist || wcCanGoBack;
     tab.canGoForward = canGoForwardHist || wcCanGoForward;
