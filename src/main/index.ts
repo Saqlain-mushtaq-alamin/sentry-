@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, session } from 'electron';
 import * as fs from 'fs';
 import path from 'path';
+
+// Enable Web Speech API in Chromium for SpeechRecognition in Electron
+app.commandLine.appendSwitch('enable-features', 'WebSpeechAPI');
+app.commandLine.appendSwitch('enable-speech-dispatcher');
 import { StorageManager } from './browser/storage-manager';
 import { TabManager } from './browser/tab-manager';
 import { DownloadManager } from './browser/download-manager';
@@ -123,11 +127,18 @@ function createWindow(): void {
   });
 
   const ses = session.defaultSession;
+  const ALLOWED_PERMISSIONS = new Set([
+    'media',
+    'microphone',
+    'audio-capture',
+    'speech-recognition',
+  ]);
   ses.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(wc === mainWindow?.webContents && permission === 'media');
+    cb(ALLOWED_PERMISSIONS.has(permission));
   });
-  ses.setPermissionCheckHandler((wc, permission) =>
-    wc === mainWindow?.webContents && permission === 'media');
+  ses.setPermissionCheckHandler((wc, permission) => {
+    return ALLOWED_PERMISSIONS.has(permission);
+  });
 
   tabManager = new TabManager(mainWindow, storageManager);
   downloadManager = new DownloadManager(mainWindow, storageManager);
