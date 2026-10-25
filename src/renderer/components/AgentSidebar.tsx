@@ -362,7 +362,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           <div className="agent-input-actions">
             <VoiceControls
               onTranscriptReceived={(transcript) => {
-                setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+                setInput(transcript);
               }}
               onSendCommand={(command) => {
                 if (command.trim() && isIdle) {
