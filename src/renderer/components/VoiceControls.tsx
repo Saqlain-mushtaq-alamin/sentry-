@@ -178,7 +178,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
         if (webSpeechResultRef.current && webSpeechResultRef.current.trim()) {
           setStatus('idle');
           onListeningStateChange?.(false);
-          handleFinishTranscript(webSpeechResultRef.current);
+          handleFinishTranscript(webSpeechResultRef.current, forceSendRef.current);
           return;
         }
 
@@ -195,9 +195,9 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
           const text = await window.sentry.voice.transcribe(buffer, mime);
           if (text && text.trim()) {
             setLiveText(text.trim());
-            handleFinishTranscript(text.trim());
+            handleFinishTranscript(text.trim(), forceSendRef.current);
           } else {
-            setError('No speech detected. Please speak clearly into your microphone.');
+            setError('No speech recognized. Please speak clearly into your microphone.');
           }
         } catch (e: any) {
           const msg = e?.message || 'Transcription failed';
@@ -208,6 +208,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
         }
       };
 
+      forceSendRef.current = false;
       rec.start();
       recRef.current = rec;
       setStatus('recording');
@@ -220,6 +221,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   };
 
   const stop = (forceSend = false) => {
+    forceSendRef.current = forceSend;
     if (speechRecRef.current) {
       try {
         speechRecRef.current.stop();
