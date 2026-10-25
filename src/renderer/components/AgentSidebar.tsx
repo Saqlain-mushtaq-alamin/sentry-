@@ -364,6 +364,12 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               onTranscriptReceived={(transcript) => {
                 setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
               }}
+              onSendCommand={(command) => {
+                if (command.trim() && isIdle) {
+                  onSendTask(command.trim());
+                  setInput('');
+                }
+              }}
             />
 
             <button
