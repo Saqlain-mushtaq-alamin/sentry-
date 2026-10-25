@@ -15,8 +15,10 @@ export const ModelSettings: React.FC = () => {
   // API Keys state
   const [openAIKey, setOpenAIKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
+  const [groqKey, setGroqKey] = useState('');
   const [hasOpenAI, setHasOpenAI] = useState(false);
   const [hasAnthropic, setHasAnthropic] = useState(false);
+  const [hasGroq, setHasGroq] = useState(false);
 
   const [saved, setSaved] = useState(false);
 
@@ -40,6 +42,7 @@ export const ModelSettings: React.FC = () => {
     if (sentry?.secrets?.has) {
       sentry.secrets.has('openai').then((has: boolean) => setHasOpenAI(has));
       sentry.secrets.has('anthropic').then((has: boolean) => setHasAnthropic(has));
+      sentry.secrets.has('groq').then((has: boolean) => setHasGroq(has));
     }
   }, []);
 
@@ -59,6 +62,11 @@ export const ModelSettings: React.FC = () => {
         await sentry.secrets.set('anthropic', anthropicKey.trim());
         setAnthropicKey('');
         setHasAnthropic(true);
+      }
+      if (groqKey.trim()) {
+        await sentry.secrets.set('groq', groqKey.trim());
+        setGroqKey('');
+        setHasGroq(true);
       }
     }
 
@@ -213,6 +221,37 @@ export const ModelSettings: React.FC = () => {
             placeholder={hasAnthropic ? '•••••••••••••••• (Key saved — enter new key to replace)' : 'sk-ant-...'}
             value={anthropicKey}
             onChange={(e) => setAnthropicKey(e.target.value)}
+            style={{
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Groq Key (for ultra-fast free Whisper voice transcription) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Key size={13} />
+              Groq API key (Voice & Whisper)
+            </label>
+            <Badge variant={hasGroq ? 'ok' : 'neutral'} dot>
+              {hasGroq ? 'Configured' : 'Not set'}
+            </Badge>
+          </div>
+          <input
+            type="password"
+            placeholder={hasGroq ? '•••••••••••••••• (Key saved — enter new key to replace)' : 'gsk_... (free Whisper voice input)'}
+            value={groqKey}
+            onChange={(e) => setGroqKey(e.target.value)}
             style={{
               background: 'var(--bg-1)',
               color: 'var(--text)',
