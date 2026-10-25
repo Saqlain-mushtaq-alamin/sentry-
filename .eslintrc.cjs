@@ -13,7 +13,11 @@ module.exports = {
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/explicit-function-return-type': 'off',
+    '@typescript-eslint/no-var-requires': 'off',
     'no-empty': ['error', { allowEmptyCatch: true }],
+    'no-useless-escape': 'off',
+    'no-constant-condition': 'off',
+    'prefer-const': 'warn',
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
   },
