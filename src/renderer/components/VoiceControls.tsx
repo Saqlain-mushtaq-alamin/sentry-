@@ -144,11 +144,13 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
             if (currentText) {
               setLiveText(currentText);
               webSpeechResultRef.current = currentText;
+              onTranscriptReceived?.(currentText);
             }
           };
 
-          sr.onerror = () => {
-            // SpeechRecognition network or recognition error - fallback to Whisper MediaRecorder
+          sr.onerror = (e: any) => {
+            console.warn('[SpeechRecognition] error:', e?.error);
+            if (e?.error === 'no-speech') return;
             try {
               sr.stop();
             } catch {
