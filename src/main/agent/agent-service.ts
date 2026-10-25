@@ -712,6 +712,53 @@ export class AgentService {
       const ollama = new OllamaAdapter();
       return await ollama.isAvailable();
     });
+  }
 
+  private async transcribeWithWindowsSpeech(audio: ArrayBuffer): Promise<string> {
+    return new Promise((resolve) => {
+      try {
+        const tempDir = os.tmpdir();
+        const tempFile = path.join(tempDir, `sentry_voice_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.wav`);
+        fs.writeFileSync(tempFile, Buffer.from(audio));
+
+        const normalizedPath = tempFile.replace(/\\/g, '/');
+        const script = `
+          Add-Type -AssemblyName System.Speech
+          $engine = New-Object System.Speech.Recognition.SpeechRecognitionEngine
+          $grammar = New-Object System.Speech.Recognition.DictationGrammar
+          $engine.LoadGrammar($grammar)
+          $engine.SetInputToWaveFile("${normalizedPath}")
+          $res = $engine.Recognize()
+          if ($res -and $res.Text) {
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            Write-Output $res.Text
+          }
+        `;
+
+        execFile(
+          'powershell',
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { timeout: 8000 },
+          (err, stdout) => {
+            try {
+              if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+            } catch {
+              // ignore
+            }
+            if (err) {
+              console.warn('[Speech] Windows speech recognition execution error:', err);
+              resolve('');
+              return;
+            }
+            const recognized = (stdout || '').trim();
+            resolve(recognized);
+          }
+        );
+      } catch (e) {
+        console.warn('[Speech] Windows speech recognition initialization error:', e);
+        resolve('');
+      }
+    });
   }
 }
+
