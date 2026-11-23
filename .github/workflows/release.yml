@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: win
+            package_cmd: npm run package:win
+          - os: macos-latest
+            artifact: mac
+            package_cmd: npm run package:mac
+          - os: ubuntu-latest
+            artifact: linux
+            package_cmd: npm run package:linux
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run Unit Tests
+        run: npm run test:unit
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+
+      - name: Run Adversarial Tests
+        run: npm run test:adversarial
+
+      - name: Build renderer and main
+        run: npm run build
+
+      - name: Package Application
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CODE_SIGNING_CERT }}
+          CSC_KEY_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ${{ matrix.package_cmd }}
+
+      - name: Upload release build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact }}
+          path: |
+            dist/release/*.exe
+            dist/release/*.dmg
+            dist/release/*.zip
+            dist/release/*.AppImage
+            dist/release/*.deb
+            dist/release/*.rpm
+          if-no-files-found: warn
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            dist/release/*.exe
+            dist/release/*.dmg
+            dist/release/*.zip
+            dist/release/*.AppImage
+            dist/release/*.deb
+            dist/release/*.rpm
+            dist/release/latest*.yml
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
