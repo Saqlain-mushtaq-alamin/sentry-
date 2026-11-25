@@ -51,6 +51,7 @@ describe('preload bridge (src/preload/index.ts)', () => {
       'voice',
       'agent',
       'extensions',
+      'updater',
     ]) {
       expect(api[ns], `namespace ${ns}`).toBeDefined();
       expect(typeof api[ns]).toBe('object');
