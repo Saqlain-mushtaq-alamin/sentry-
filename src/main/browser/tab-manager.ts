@@ -507,7 +507,7 @@ export class TabManager {
     wc.on('before-input-event', (event, input) => {
       if (input.type !== 'keyDown') return;
 
-      const isCtrl = process.platform === 'darwin' ? input.meta : input.control;
+      const isCtrl = Boolean(input.control || input.meta);
 
       // Ctrl + Shift + Space: Toggle Agent Command Box
       if (isCtrl && input.shift && (input.code === 'Space' || input.key === ' ' || input.key === 'Space')) {
