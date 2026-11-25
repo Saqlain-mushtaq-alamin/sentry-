@@ -20,6 +20,7 @@ import { InjectionAlert } from './overlays/InjectionAlert';
 import { MultiTabDashboard } from './overlays/MultiTabDashboard';
 import { ConfirmationBar } from './components/ConfirmationBar';
 import { FeedbackDialog } from './components/FeedbackDialog';
+import { UpdateNotification } from './components/UpdateNotification';
 import { useFrozenFrame } from './hooks/useHideNativeView';
 import { speak, stop } from './services/tts';
 import { TaskState, ActionLogEntry, AgentNotification, PageSnapshot, MultiTabTask, DeveloperSessionStats, TaskTrace, TraceStep, ConfirmationResponse } from '../shared/types';
@@ -100,6 +101,14 @@ declare global {
         downloadUpdate: () => Promise<import('../shared/beta').BetaUpdateStatusEvent>;
         installUpdate: () => Promise<boolean>;
         onUpdateStatus: (callback: (status: import('../shared/beta').BetaUpdateStatusEvent) => void) => () => void;
+      };
+      updater?: {
+        getStatus: () => Promise<any>;
+        checkForUpdates: () => Promise<any>;
+        downloadUpdate: () => Promise<any>;
+        installUpdate: () => Promise<boolean>;
+        setChannel: (channel: string) => Promise<any>;
+        onUpdateStatus: (callback: (status: any) => void) => () => void;
       };
       agent: {
         runTask: (instruction: string) => Promise<{ success: boolean; result?: import('../shared/types').TaskResult; error?: string }>;
@@ -954,6 +963,8 @@ export default function App(): React.JSX.Element {
           />
         )}
       </div>
+
+      <UpdateNotification />
     </div>
   );
 }
