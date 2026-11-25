@@ -12,6 +12,7 @@ import { AgentService } from './agent/agent-service';
 import { FeedbackService } from './beta/feedback-service';
 import { BetaMetricsCollector } from './beta/metrics';
 import { UpdateService } from './beta/update-service';
+import { SentryUpdater } from './updater/auto-updater';
 import { startCrashReporter } from './beta/crash-reporter';
 import { BetaChannel, BetaConsentSettings, BetaMetricEvent, BetaStatus, FeedbackInput } from '../shared/beta';
 
@@ -21,10 +22,11 @@ let tabManager: TabManager;
 let downloadManager: DownloadManager;
 let agentService: AgentService;
 
-// Beta program services (Phase 15)
+// Beta program services (Phase 15) & Production Updater (Phase 16)
 let feedbackService: FeedbackService;
 let metricsCollector: BetaMetricsCollector;
 let updateService: UpdateService;
+let sentryUpdater: SentryUpdater;
 let resolvedChannel: BetaChannel | null = null;
 
 import { ExtensionManager } from './extensions/extension-manager';
@@ -102,6 +104,14 @@ function createWindow(): void {
     feedUrl: process.env.SENTRY_UPDATE_URL,
     getWindow: () => mainWindow,
   });
+
+  sentryUpdater = new SentryUpdater({
+    channel: channel === 'beta' ? 'beta' : 'stable',
+    appVersion: app.getVersion(),
+    feedUrl: process.env.SENTRY_UPDATE_URL,
+    getWindow: () => mainWindow,
+  });
+  sentryUpdater.initialize();
 
   // Crash reporting is strictly opt-in: requires user consent AND a submit URL.
   startCrashReporter({
@@ -277,6 +287,19 @@ ipcMain.handle('beta:install-update', () => {
   return true;
 });
 
+// Auto Updater (Phase 16)
+ipcMain.handle('updater:get-status', () => sentryUpdater.getStatus());
+ipcMain.handle('updater:check-updates', () => sentryUpdater.checkForUpdates());
+ipcMain.handle('updater:download-update', () => sentryUpdater.downloadUpdate());
+ipcMain.handle('updater:install-update', () => {
+  sentryUpdater.quitAndInstall();
+  return true;
+});
+ipcMain.handle('updater:set-channel', (_evt, ch: any) => {
+  sentryUpdater.setChannel(ch);
+  return sentryUpdater.getStatus();
+});
+
 app.whenReady().then(() => {
   createWindow();
 
@@ -298,6 +321,8 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   updateService?.stopPeriodicChecks();
   updateService?.dispose();
+  sentryUpdater?.stopPeriodicChecks();
+  sentryUpdater?.dispose();
 });
 
 app.on('window-all-closed', () => {
