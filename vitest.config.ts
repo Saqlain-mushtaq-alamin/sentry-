@@ -5,10 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: [
-      'tests/unit/**/*.test.ts',
-      'tests/integration/**/*.test.ts',
-      'tests/adversarial/**/*.test.ts',
-      'tests/stress/**/*.test.ts',
+      'tests/unit/**/*.test.{ts,tsx}',
+      'tests/integration/**/*.test.{ts,tsx}',
+      'tests/adversarial/**/*.test.{ts,tsx}',
+      'tests/stress/**/*.test.{ts,tsx}',
     ],
     coverage: {
       provider: 'v8',
