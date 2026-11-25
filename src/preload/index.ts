@@ -193,6 +193,20 @@ contextBridge.exposeInMainWorld('sentry', {
     },
   },
 
+  // Auto Updater (Phase 16)
+  updater: {
+    getStatus: () => ipcRenderer.invoke('updater:get-status'),
+    checkForUpdates: () => ipcRenderer.invoke('updater:check-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('updater:download-update'),
+    installUpdate: () => ipcRenderer.invoke('updater:install-update'),
+    setChannel: (channel: string) => ipcRenderer.invoke('updater:set-channel', channel),
+    onUpdateStatus: (callback: (status: any) => void) => {
+      const handler = (_evt: unknown, status: any) => callback(status);
+      ipcRenderer.on('updater:status', handler);
+      return () => ipcRenderer.removeListener('updater:status', handler);
+    },
+  },
+
   // Subscriptions
   onTabsUpdated: (callback: (tabs: unknown[]) => void) => {
     const handler = (_evt: unknown, tabs: unknown[]) => callback(tabs);
