@@ -22,6 +22,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "package": "electron-builder",
+    "package:win": "electron-builder --win",
+    "package:mac": "electron-builder --mac",
+    "package:linux": "electron-builder --linux",
+    "package:all": "electron-builder -mwl",
     "package:beta": "electron-builder --publish never -c.extraMetadata.channel=beta"
   },
   "dependencies": {
