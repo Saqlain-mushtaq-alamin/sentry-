@@ -1,28 +1,77 @@
 appId: com.sentry.browser
-productName: Sentry Browser
+productName: Sentry
+copyright: "Copyright © 2026"
+
 directories:
-  output: release
+  output: dist/release
+  buildResources: assets
+
 files:
   - dist/**/*
   - package.json
+  - "!node_modules/**/test/**"
+  - "!node_modules/**/docs/**"
+
 mac:
   category: public.app-category.productivity
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: assets/icons/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.inherit.plist
+
 win:
   target:
-    - nsis
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: assets/icons/icon.ico
+  signingHashAlgorithms:
+    - sha256
+
 linux:
   target:
-    - AppImage
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+  category: Network
+  icon: assets/icons
 
-# Phase 15 — beta distribution pipeline.
-# `npm run package:beta` stamps extraMetadata.channel=beta so builds self-
-# identify as beta (resolveChannel in src/main/index.ts) and publish to the
-# generic feed below under the "beta" channel (latest-beta.yml).
-# Override the feed at runtime with SENTRY_UPDATE_URL for QA/staging installs.
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: assets/icons/icon.ico
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
 publish:
-  provider: generic
-  url: https://updates.sentrybrowser.dev
-  channel: beta
+  provider: github
+  owner: sentry-browser
+  repo: sentry
