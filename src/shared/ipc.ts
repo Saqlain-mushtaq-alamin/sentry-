@@ -83,6 +83,14 @@ export const IPC_CHANNELS = {
   BETA_INSTALL_UPDATE: 'beta:install-update',
   BETA_UPDATE_STATUS: 'beta:update-status',
 
+  // Auto Updater (Phase 16)
+  UPDATER_GET_STATUS: 'updater:get-status',
+  UPDATER_CHECK_UPDATES: 'updater:check-updates',
+  UPDATER_DOWNLOAD_UPDATE: 'updater:download-update',
+  UPDATER_INSTALL_UPDATE: 'updater:install-update',
+  UPDATER_SET_CHANNEL: 'updater:set-channel',
+  UPDATER_STATUS: 'updater:status',
+
   // Memory & Privacy
   AGENT_FORGET_SITE: 'agent:forget-site',
   AGENT_CLEAR_LOGS: 'agent:clear-logs',
