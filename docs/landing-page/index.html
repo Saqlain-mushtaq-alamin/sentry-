@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentry — The Trust-First Agentic Web Browser</title>
+  <meta name="description" content="Autonomous AI web assistance with built-in Action Firewall, prompt injection defense, and local-first data privacy.">
+  <link rel="icon" type="image/png" href="../../assets/icons/icon-32.png">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: #111827;
+      --bg-card-hover: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.4);
+      --accent-emerald: #10b981;
+      --accent-cyan: #38bdf8;
+      --border: #1e293b;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    a:hover {
+      color: #7dd3fc;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header Navigation */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      background: rgba(9, 13, 22, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-main);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+      color: var(--accent-cyan);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, #ffffff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 36px;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 60px;
+    }
+
+    .hero-preview {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .browser-mock {
+      background: #0b1120;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+    }
+
+    .browser-mock-header {
+      background: #111827;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .mock-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mock-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    .mock-url {
+      background: #1e293b;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+      flex-grow: 1;
+      text-align: left;
+    }
+
+    .browser-mock-body {
+      padding: 40px;
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.08) 0%, transparent 60%);
+    }
+
+    /* The Problem Section */
+    .problem-section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 17px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #334155;
+    }
+
+    .card-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* Pillars */
+    .pillars-section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Architecture Section */
+    .arch-section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.4);
+    }
+
+    .arch-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #38bdf8;
+      overflow-x: auto;
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* Downloads Section */
+    .download-section {
+      padding: 100px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .download-grid {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+
+    .download-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 280px;
+      text-align: center;
+    }
+
+    .download-card:hover {
+      border-color: var(--accent-cyan);
+    }
+
+    .os-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+    }
+
+    /* FAQ Section */
+    .faq-section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+
+    .faq-item h4 {
+      font-size: 17px;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+
+    .faq-item p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Header -->
+  <header>
+    <div class="container nav-inner">
+      <div class="brand">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Sentry</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#downloads">Download</a>
+        <a href="#faq">FAQ</a>
+        <a href="../index.html">Docs</a>
+      </nav>
+      <a href="#downloads" class="btn btn-primary">Download Free</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span>🚀 Version 1.0.0 Now Available</span>
+      </div>
+      <h1>The Trust-First Agentic Web Browser</h1>
+      <p>AI browsers are powerful, but you can&apos;t trust them with your data. Sentry is the autonomous web agent with an Action Firewall, prompt injection defense, and local-first execution.</p>
+      <div class="hero-cta">
+        <a href="#downloads" class="btn btn-primary">Download for Windows &amp; macOS</a>
+        <a href="../getting-started/first-task.html" class="btn btn-secondary">Read Documentation</a>
+      </div>
+
+      <div class="hero-preview">
+        <div class="browser-mock">
+          <div class="browser-mock-header">
+            <div class="mock-dots">
+              <div class="mock-dot dot-red"></div>
+              <div class="mock-dot dot-yellow"></div>
+              <div class="mock-dot dot-green"></div>
+            </div>
+            <div class="mock-url">sentry://agent-command-box — &quot;Compare cloud GPU pricing and summarize in Markdown&quot;</div>
+          </div>
+          <div class="browser-mock-body">
+            <div style="max-width: 500px;">
+              <span style="font-size: 13px; color: #10b981; font-weight: 700; text-transform: uppercase;">Action Firewall Active</span>
+              <h3 style="margin: 8px 0; font-size: 22px;">Multi-Tab Reasoning with Zero Leakage</h3>
+              <p style="color: #94a3b8; font-size: 14px;">Interception verified: 3 tabs opened, 0 cloud tokens exposed, Tier 1 Read-Only clearance verified across all targets.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The Problem Section -->
+  <section class="problem-section" id="problem">
+    <div class="container">
+      <div class="section-title">
+        <h2>The AI Browser Dilemma</h2>
+        <p>Current autonomous agents have root access to your browser sessions without safety rails.</p>
+      </div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon">⚠️</div>
+          <h3>Indirect Prompt Injection</h3>
+          <p>Malicious web pages can hide invisible instructions that hijack the AI to scrape your private emails or company documents.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">💸</div>
+          <h3>Accidental Irreversible Actions</h3>
+          <p>Unconstrained agents can click &quot;Confirm Order&quot;, delete accounts, or transfer funds without human confirmation.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">☁️</div>
+          <h3>Cloud Surveillance</h3>
+          <p>Sending every visited URL, DOM element, and keystroke to third-party cloud servers destroys personal and enterprise privacy.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How Sentry Is Different (3 Pillars) -->
+  <section class="pillars-section" id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>How Sentry Is Different</h2>
+        <p>Three core pillars of trust, transparency, and local control.</p>
+      </div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon">🛡️</div>
+          <h3>1. Trust: Action Firewall</h3>
+          <p>Every planned action is classified into 4 risk tiers. Read operations proceed instantly, while state-modifying or financial actions require your explicit confirmation.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📜</div>
+          <h3>2. Transparency: Audit Log</h3>
+          <p>Every single step, DOM selector, timestamp, and model thought is logged to a tamper-evident audit log with instant inspection and undo capabilities.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔒</div>
+          <h3>3. Control: Local-First AI</h3>
+          <p>Run completely offline using Ollama (Llama 3.1, Qwen 2.5) with zero telemetry and zero cloud dependencies. Your data stays on your machine.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Security Architecture -->
+  <section class="arch-section" id="architecture">
+    <div class="container">
+      <div class="section-title">
+        <h2>Three-Layer Defense-in-Depth</h2>
+        <p>A rigorous security boundary between untrusted web content and browser execution.</p>
+      </div>
+      <div class="arch-diagram">
++-----------------------------------------------------------+
+| Layer 1: Ingestion &amp; Input Sanitization                   |
+| - Computed style hidden-element scanner (opacity 0)       |
+| - 50+ heuristic injection patterns &amp; zero-width detector  |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+| Layer 2: Action Firewall &amp; Origin Trust Policies          |
+| - 4-Tier risk classifier (Tier 1 Read-Only to Tier 4)     |
+| - Website Trust Mode (Read+Act, Read-Only, Blocked)       |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+| Layer 3: Auditability &amp; Local Storage                     |
+| - Tamper-evident hash-chained audit log                   |
+| - OS safeStorage encryption (DPAPI / Keychain)            |
++-----------------------------------------------------------+
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section class="download-section" id="downloads">
+    <div class="container">
+      <div class="section-title">
+        <h2>Download Sentry</h2>
+        <p>Available for Windows, macOS, and Linux. Free and open source.</p>
+      </div>
+      <div class="download-grid">
+        <div class="download-card">
+          <div class="os-icon">🪟</div>
+          <h3>Windows</h3>
+          <p style="margin: 8px 0 20px; color: var(--text-muted); font-size: 13px;">Windows 10/11 (64-bit)</p>
+          <a href="https://github.com/sentry-browser/sentry/releases/latest" class="btn btn-primary" style="width: 100%;">Download .exe</a>
+        </div>
+        <div class="download-card">
+          <div class="os-icon">🍎</div>
+          <h3>macOS</h3>
+          <p style="margin: 8px 0 20px; color: var(--text-muted); font-size: 13px;">Apple Silicon &amp; Intel</p>
+          <a href="https://github.com/sentry-browser/sentry/releases/latest" class="btn btn-primary" style="width: 100%;">Download .dmg</a>
+        </div>
+        <div class="download-card">
+          <div class="os-icon">🐧</div>
+          <h3>Linux</h3>
+          <p style="margin: 8px 0 20px; color: var(--text-muted); font-size: 13px;">AppImage, .deb, .rpm</p>
+          <a href="https://github.com/sentry-browser/sentry/releases/latest" class="btn btn-primary" style="width: 100%;">Download AppImage</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq-section" id="faq">
+    <div class="container">
+      <div class="section-title">
+        <h2>Frequently Asked Questions</h2>
+      </div>
+      <div style="max-width: 800px; margin: 0 auto;">
+        <div class="faq-item">
+          <h4>Is Sentry really 100% private with Ollama?</h4>
+          <p>Yes. When running with Ollama, all inference happens directly on your CPU/GPU. No page snapshots, queries, or logs leave your computer.</p>
+        </div>
+        <div class="faq-item">
+          <h4>Can Sentry run Chrome extensions?</h4>
+          <p>Yes. Sentry supports Chrome extensions including ad blockers (uBlock Origin), password managers (1Password, Bitwarden), and developer tools.</p>
+        </div>
+        <div class="faq-item">
+          <h4>How does Sentry handle banking or sensitive websites?</h4>
+          <p>You can set banking domains to &quot;Blocked&quot; in Website Trust Mode, ensuring the agent is completely barred from interacting with them.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>Sentry Browser &copy; 2026. Built with trust and privacy at the core.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
+
