@@ -226,6 +226,33 @@ describe('TabManager webContents event handlers', () => {
       expect(mockWindow.webContents.send).toHaveBeenCalledWith('agent:shortcut-stop');
     });
 
+    it('Cmd/Meta+Shift shortcuts work on macOS or when meta key is used', () => {
+      const tab = tabManager.createTab('https://a.com');
+      const event = fireInput(getView(tab.id), { type: 'keyDown', meta: true, shift: true, key: 'P' });
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith('agent:shortcut-pause-resume');
+    });
+
+    it('works with control key even on darwin platform', () => {
+      const originalPlatform = process.platform;
+      try {
+        Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
+        const tab = tabManager.createTab('https://a.com');
+        const event = fireInput(getView(tab.id), {
+          type: 'keyDown',
+          control: true,
+          shift: true,
+          code: 'Space',
+          key: ' ',
+        });
+        expect(event.preventDefault).toHaveBeenCalled();
+        expect(mockWindow.webContents.send).toHaveBeenCalledWith('agent:toggle-command-box');
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
+      }
+    });
+
     it('ignores key-up events and unrelated combinations', () => {
       const tab = tabManager.createTab('https://a.com');
       (mockWindow.webContents.send as any).mockClear();
